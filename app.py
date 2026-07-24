@@ -3190,7 +3190,7 @@ def inadimplencia_upload():
     if _os.environ.get("GITHUB_TOKEN"):
         try:
             _commitar_arquivo_github(
-                repo="lopesjoel/Dashboard-Ativuz",
+                repo="grupoativuz/Dashboard-Ativuz",
                 path="planilhas/CONTAS-A-RECEBER.xlsx",
                 conteudo=conteudo,
                 mensagem="chore: atualiza CONTAS-A-RECEBER.xlsx via upload no Dashboard",
