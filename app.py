@@ -69,6 +69,7 @@ def _nh(s):
 _ROTAS_PUBLICAS = {
     "login", "static", "admin_novo_usuario",
     "api_contratos_ativos", "api_vistoria_importar", "api_contrato_dados",
+    "api_inadimplencia_upload",
 }
 
 @app.before_request
