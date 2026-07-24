@@ -3208,6 +3208,42 @@ def inadimplencia_upload():
     return redirect(url_for("pagina_inadimplencia"))
 
 
+def _checar_token_inadimplencia():
+    token_esperado = _os.environ.get("INADIMPLENCIA_API_TOKEN", "")
+    token_recebido = request.headers.get("X-Inadimplencia-Token", "")
+    return bool(token_esperado) and token_recebido == token_esperado
+
+
+@app.route("/api/inadimplencia/upload", methods=["POST"])
+def api_inadimplencia_upload():
+    """
+    Recebe CONTAS-A-RECEBER.xlsx da automação do Gmail (Apps Script, sem sessão
+    de login) e commita no GitHub. Autenticado por token compartilhado, mesmo
+    esquema de /api/contratos/ativos.
+    """
+    if not _checar_token_inadimplencia():
+        return jsonify({"error": "Token inválido."}), 401
+
+    f = request.files.get("planilha")
+    if not f or not f.filename:
+        return jsonify({"error": "Nenhum arquivo enviado."}), 400
+
+    if not _os.environ.get("GITHUB_TOKEN"):
+        return jsonify({"error": "GITHUB_TOKEN não configurado no servidor."}), 500
+
+    try:
+        _commitar_arquivo_github(
+            repo="grupoativuz/Dashboard-Ativuz",
+            path="planilhas/CONTAS-A-RECEBER.xlsx",
+            conteudo=f.read(),
+            mensagem="chore: atualiza CONTAS-A-RECEBER.xlsx via automação (Gmail)",
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({"ok": True})
+
+
 # ── Linha do Tempo: snapshot diário ──────────────────────────────────────────
 
 _DIAS_PT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
