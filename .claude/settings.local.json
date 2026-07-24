@@ -174,7 +174,8 @@
       "Bash(./venv/bin/python3 *)",
       "Bash(gh run *)",
       "Bash(gh repo *)",
-      "Bash(gh api *)"
+      "Bash(gh api *)",
+      "Bash(awk 'NR==5{print}')"
     ]
   }
 }
