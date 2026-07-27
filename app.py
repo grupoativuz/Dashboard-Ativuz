@@ -6056,6 +6056,275 @@ def api_checklist_delete_item(item_id):
         return jsonify({"error": str(e)}), 500
 
 
+# ── Hodômetros semanais ───────────────────────────────────────────────────────
+# Motoristas enviam foto do hodômetro toda segunda-feira. O que gravamos é a
+# leitura absoluta do painel; o rodado da semana é a diferença entre leituras
+# consecutivas. Cada semana é fechada em si (franquia não acumula), e o que
+# passar da franquia é cobrado por km.
+
+_HOD_FRANQUIA_PADRAO = 1500.0
+_HOD_VALOR_KM_PADRAO = 0.50
+
+_MESES_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+             "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+
+
+def _hod_segundas_do_mes(ano, mes):
+    """Todas as segundas-feiras de um mês, em ordem."""
+    import calendar as _cal
+    ultimo_dia = _cal.monthrange(ano, mes)[1]
+    d = date(ano, mes, 1)
+    d += timedelta(days=(7 - d.weekday()) % 7)   # anda até a 1ª segunda
+    segundas = []
+    while d.day <= ultimo_dia and d.month == mes:
+        segundas.append(d)
+        d += timedelta(days=7)
+    return segundas
+
+
+def _hod_calendario(hoje=None, primeiro_mes=None):
+    """
+    Monta os grupos de colunas da planilha.
+
+    Regra de visibilidade pedida pela operação: o mês corrente fica aberto; ao
+    alcançar a última segunda dele, o mês seguinte já abre junto. Meses
+    encerrados ficam recolhidos, exibindo só a última segunda — o front deixa
+    expandir sob demanda.
+    """
+    hoje = hoje or date.today()
+    atual = date(hoje.year, hoje.month, 1)
+
+    segundas_atual = _hod_segundas_do_mes(atual.year, atual.month)
+    abrir_proximo  = bool(segundas_atual) and hoje >= segundas_atual[-1]
+
+    inicio = primeiro_mes or atual
+    if inicio > atual:
+        inicio = atual
+
+    fim = atual
+    if abrir_proximo:
+        fim = date(atual.year + (atual.month == 12), (atual.month % 12) + 1, 1)
+
+    grupos, cursor = [], inicio
+    while cursor <= fim:
+        segundas = _hod_segundas_do_mes(cursor.year, cursor.month)
+        if segundas:
+            aberto = cursor >= atual
+            grupos.append({
+                "ym":       cursor.strftime("%Y-%m"),
+                "label":    f"{_MESES_PT[cursor.month - 1]}/{cursor.year}",
+                "aberto":   aberto,
+                "segundas": [{"iso": d.isoformat(), "label": d.strftime("%d/%m")} for d in segundas],
+                "resumo":   segundas[-1].isoformat(),   # coluna mostrada quando recolhido
+            })
+        cursor = date(cursor.year + (cursor.month == 12), (cursor.month % 12) + 1, 1)
+
+    return grupos
+
+
+def _hod_dinheiro(valor):
+    """
+    Arredonda em reais com meio-para-cima. O round() nativo usa arredondamento
+    bancário (100.275 -> 100.27), o que não corresponde ao que se cobra.
+    """
+    from decimal import Decimal as _D, ROUND_HALF_UP as _HU
+    return float(_D(str(valor)).quantize(_D("0.01"), rounding=_HU))
+
+
+def _hod_parse_km(valor):
+    """
+    Aceita o número no formato que o usuário digitar: '123456.78', '123456,78'
+    ou '123.456,78'. Havendo vírgula, ela é a decimal e o ponto é milhar.
+    """
+    s = str(valor).strip()
+    if not s:
+        raise ValueError("vazio")
+    if "," in s:
+        s = s.replace(".", "").replace(",", ".")
+    return float(s)
+
+
+def _hod_calcular(leituras, franquia, valor_km):
+    """
+    leituras: {data_iso: km}. Devolve {data_iso: {...}} com o cálculo de cada
+    semana, comparando cada leitura com a imediatamente anterior registrada.
+
+    status:
+      base      primeira leitura da placa — marco zero, não gera cobrança
+      ok        rodou dentro da franquia
+      excedente rodou acima da franquia
+      lacuna    pulou uma ou mais segundas; sinalizado e não cobrado
+      erro      leitura menor que a anterior (troca de painel ou digitação)
+    """
+    datas = sorted(leituras.keys())
+    out, anterior = {}, None
+
+    for iso in datas:
+        km = float(leituras[iso])
+        info = {"km": km, "rodado": None, "excedente": 0.0, "valor": 0.0, "status": "base"}
+
+        if anterior is not None:
+            d_ant  = date.fromisoformat(anterior)
+            d_atu  = date.fromisoformat(iso)
+            semanas = (d_atu - d_ant).days / 7.0
+            rodado  = km - float(leituras[anterior])
+            info["rodado"] = rodado
+
+            if rodado < 0:
+                info["status"] = "erro"
+            elif semanas > 1.01:
+                info["status"] = "lacuna"
+            else:
+                # Arredonda o excedente antes de multiplicar: a subtração de
+                # leituras carrega ruído binário (1700.5499999...) que, levado
+                # direto ao produto, derruba um centavo da cobrança.
+                excedente = round(max(0.0, rodado - franquia), 2)
+                info["excedente"] = excedente
+                info["valor"]     = _hod_dinheiro(excedente * valor_km)
+                info["status"]    = "excedente" if excedente > 0 else "ok"
+
+        out[iso] = info
+        anterior = iso
+
+    return out
+
+
+@app.route("/api/hodometros")
+def api_hodometros_grid():
+    veiculos, erro = _ler_veiculos()
+    if erro:
+        return jsonify({"error": erro}), 500
+
+    sb = _supabase()
+    if not sb:
+        return jsonify({"error": "Supabase indisponível"}), 503
+
+    try:
+        regs = sb.table("hodometros").select("placa, data_segunda, km").execute().data or []
+        cfgs = sb.table("hodometro_config").select("*").execute().data or []
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    cfg_map = {c["placa"]: c for c in cfgs}
+
+    por_placa = {}
+    for r in regs:
+        por_placa.setdefault(r["placa"], {})[str(r["data_segunda"])] = float(r["km"])
+
+    # O calendário começa no mês da leitura mais antiga, para o histórico não sumir.
+    todas_datas = [d for m in por_placa.values() for d in m]
+    primeiro = None
+    if todas_datas:
+        d0 = date.fromisoformat(min(todas_datas))
+        primeiro = date(d0.year, d0.month, 1)
+
+    grupos = _hod_calendario(primeiro_mes=primeiro)
+
+    linhas = []
+    for v in veiculos:
+        placa    = v["placa"]
+        cfg      = cfg_map.get(placa, {})
+        franquia = float(cfg.get("franquia_km") or _HOD_FRANQUIA_PADRAO)
+        valor_km = float(cfg.get("valor_km_extra") or _HOD_VALOR_KM_PADRAO)
+
+        celulas = _hod_calcular(por_placa.get(placa, {}), franquia, valor_km)
+        linhas.append({
+            "placa":     placa,
+            "modelo":    v["modelo"],
+            "cliente":   v["cliente"],     # é também o nome exibido no hover
+            "contrato":  v["contrato"],
+            "unidade":   v["unidade"],
+            "franquia":  franquia,
+            "valor_km":  valor_km,
+            "celulas":   celulas,
+            "total":     _hod_dinheiro(sum(c["valor"] for c in celulas.values())),
+        })
+
+    return jsonify({
+        "grupos": grupos,
+        "linhas": linhas,
+        "total_geral": _hod_dinheiro(sum(l["total"] for l in linhas)),
+    })
+
+
+@app.route("/api/hodometros", methods=["POST"])
+def api_hodometros_salvar():
+    body  = request.get_json(force=True) or {}
+    placa = (body.get("placa") or "").strip().upper()
+    data  = (body.get("data") or "").strip()
+    km_in = body.get("km")
+
+    if not placa or not data:
+        return jsonify({"error": "placa e data são obrigatórios"}), 400
+    try:
+        d = date.fromisoformat(data)
+    except ValueError:
+        return jsonify({"error": "data inválida (use AAAA-MM-DD)"}), 400
+    if d.weekday() != 0:
+        return jsonify({"error": "a data precisa ser uma segunda-feira"}), 400
+
+    sb = _supabase()
+    if not sb:
+        return jsonify({"error": "Supabase indisponível"}), 503
+
+    # Campo esvaziado apaga a leitura — é como o usuário desfaz um lançamento.
+    if km_in is None or str(km_in).strip() == "":
+        try:
+            sb.table("hodometros").delete().eq("placa", placa).eq("data_segunda", data).execute()
+            return jsonify({"ok": True, "removido": True})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    try:
+        km = round(_hod_parse_km(km_in), 2)
+    except ValueError:
+        return jsonify({"error": "km inválido"}), 400
+    if km < 0:
+        return jsonify({"error": "km não pode ser negativo"}), 400
+
+    try:
+        sb.table("hodometros").upsert(
+            {"placa": placa, "data_segunda": data, "km": km},
+            on_conflict="placa,data_segunda",
+        ).execute()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({"ok": True, "km": km})
+
+
+@app.route("/api/hodometros/placa/<placa>")
+def api_hodometros_placa(placa):
+    """Histórico de uma placa só — alimenta o bloco dentro do modal do contrato."""
+    placa = placa.strip().upper()
+    sb = _supabase()
+    if not sb:
+        return jsonify({"error": "Supabase indisponível"}), 503
+
+    try:
+        regs = sb.table("hodometros").select("data_segunda, km") \
+                 .eq("placa", placa).order("data_segunda").execute().data or []
+        cfg = sb.table("hodometro_config").select("*").eq("placa", placa).execute().data or []
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    c        = cfg[0] if cfg else {}
+    franquia = float(c.get("franquia_km") or _HOD_FRANQUIA_PADRAO)
+    valor_km = float(c.get("valor_km_extra") or _HOD_VALOR_KM_PADRAO)
+
+    leituras = {str(r["data_segunda"]): float(r["km"]) for r in regs}
+    celulas  = _hod_calcular(leituras, franquia, valor_km)
+
+    historico = [dict(data=iso, **celulas[iso]) for iso in sorted(celulas, reverse=True)]
+    return jsonify({
+        "placa":     placa,
+        "franquia":  franquia,
+        "valor_km":  valor_km,
+        "historico": historico,
+        "total":     _hod_dinheiro(sum(h["valor"] for h in historico)),
+    })
+
+
 # ── Análise de Dados ──────────────────────────────────────────────────────────
 # Página em construção: estrutura e seções definidas, cálculos a implementar
 # depois (receita/margens via _dre_calcular, alavancagem via

@@ -552,6 +552,123 @@
 
   @media (max-width: 900px)  { .ck-grid { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 540px)  { .ck-grid { grid-template-columns: 1fr; } .ck-info-grid { grid-template-columns: 1fr; } }
+
+  /* ═══════════ Abas ═══════════ */
+  .ck-tabs {
+    display: flex; gap: 4px; margin-bottom: 22px;
+    border-bottom: 2px solid var(--line); padding-bottom: 0;
+  }
+  .ck-tab {
+    background: none; border: none; cursor: pointer;
+    padding: 9px 18px; font-size: 0.88rem; font-weight: 600;
+    color: var(--text-muted); border-bottom: 2px solid transparent;
+    margin-bottom: -2px; transition: color .12s, border-color .12s;
+  }
+  .ck-tab:hover { color: var(--text); }
+  .ck-tab.on    { color: var(--primary); border-bottom-color: var(--primary); }
+
+  /* ═══════════ Planilha de hodômetros ═══════════ */
+  .hod-toolbar {
+    display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap; margin-bottom: 14px;
+  }
+  .hod-legend {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    margin-left: auto; font-size: 0.74rem; color: var(--text-muted);
+  }
+  .hod-legend span { display: flex; align-items: center; gap: 5px; }
+  .hod-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+  .hod-scroll {
+    overflow-x: auto; border: 1px solid var(--line);
+    border-radius: var(--radius); background: var(--surface);
+  }
+  .hod-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
+  .hod-table th, .hod-table td {
+    border-bottom: 1px solid var(--line); padding: 0;
+    font-size: 0.8rem; white-space: nowrap;
+  }
+  .hod-table thead th {
+    position: sticky; top: 0; z-index: 3;
+    background: var(--surface-2); color: var(--text-muted);
+    font-weight: 600; font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: .04em; padding: 9px 10px; text-align: center;
+  }
+  /* Coluna da placa fixa na horizontal, para não perder a referência ao rolar */
+  .hod-col-placa {
+    position: sticky; left: 0; z-index: 2;
+    background: var(--surface); text-align: left !important;
+    padding: 8px 12px !important; min-width: 190px;
+    border-right: 1px solid var(--line);
+  }
+  thead .hod-col-placa { z-index: 4; background: var(--surface-2); }
+  .hod-table tbody tr:hover .hod-col-placa { background: var(--surface-2); }
+
+  .hod-placa-cell { display: flex; flex-direction: column; gap: 2px; cursor: help; }
+  .hod-placa-txt  { font-weight: 700; letter-spacing: .04em; color: var(--text); }
+  .hod-placa-sub  {
+    font-size: 0.7rem; color: var(--text-muted);
+    max-width: 175px; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .hod-mes-head {
+    border-left: 2px solid var(--line);
+    color: var(--text) !important; cursor: pointer; user-select: none;
+  }
+  .hod-mes-head:hover { color: var(--primary) !important; }
+  .hod-mes-head .caret { font-size: 0.6rem; opacity: .6; margin-left: 4px; }
+
+  .hod-cell { text-align: center; border-left: 1px solid var(--line); min-width: 96px; }
+  .hod-cell.mes-start { border-left: 2px solid var(--line); }
+
+  .hod-input {
+    width: 100%; border: none; background: transparent;
+    padding: 8px 6px 2px; text-align: center; font-size: 0.82rem;
+    color: var(--text); font-family: inherit; -moz-appearance: textfield;
+  }
+  .hod-input::-webkit-outer-spin-button,
+  .hod-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .hod-input:focus {
+    outline: 2px solid var(--primary); outline-offset: -2px;
+    border-radius: 4px; background: var(--surface-2);
+  }
+  .hod-input.saving { opacity: .5; }
+
+  .hod-sub {
+    font-size: 0.66rem; padding: 0 4px 6px; min-height: 15px;
+    color: var(--text-muted); line-height: 1.2;
+  }
+  .hod-sub.ok        { color: var(--success); }
+  .hod-sub.excedente { color: var(--danger); font-weight: 700; }
+  .hod-sub.lacuna    { color: var(--warning); font-weight: 600; }
+  .hod-sub.erro      { color: var(--danger); font-weight: 600; }
+  .hod-sub.base      { color: var(--text-muted); font-style: italic; }
+
+  .hod-total-col { border-left: 2px solid var(--line); text-align: right !important; padding: 8px 14px !important; }
+  .hod-total-val { font-weight: 700; color: var(--text); }
+  .hod-total-val.cobrar { color: var(--danger); }
+
+  .hod-foot td {
+    background: var(--surface-2); font-weight: 700;
+    padding: 10px 14px; font-size: 0.84rem; color: var(--text);
+  }
+
+  /* Bloco de hodômetro dentro do modal do contrato */
+  .hod-modal-resumo {
+    display: flex; gap: 18px; flex-wrap: wrap;
+    padding: 10px 12px; margin-bottom: 10px;
+    background: var(--surface-2); border-radius: var(--radius-sm);
+    font-size: 0.78rem; color: var(--text-muted);
+  }
+  .hod-modal-resumo b { color: var(--text); }
+  .hod-hist { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  .hod-hist th {
+    text-align: left; font-size: 0.68rem; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--text-muted);
+    padding: 5px 8px; border-bottom: 1px solid var(--line);
+  }
+  .hod-hist td { padding: 6px 8px; border-bottom: 1px solid var(--line); color: var(--text); }
+  .hod-hist td.num { text-align: right; font-variant-numeric: tabular-nums; }
 </style>
 {% endblock %}
 
@@ -574,6 +691,14 @@
   <button class="alert-close" onclick="this.parentElement.remove()">&#10005;</button>
 </div>
 {% endif %}
+
+<!-- Abas -->
+<div class="ck-tabs">
+  <button class="ck-tab on" id="tab-btn-contratos" onclick="ckSwitch('contratos')">Documentação</button>
+  <button class="ck-tab"     id="tab-btn-hodometro" onclick="ckSwitch('hodometro')">Hodômetros</button>
+</div>
+
+<div id="pane-contratos">
 
 <!-- Filter bar -->
 <div class="ck-filter-bar">
@@ -696,6 +821,43 @@
 </div>
 {% endif %}
 
+</div><!-- /pane-contratos -->
+
+<!-- ═══════════ ABA HODÔMETROS ═══════════ -->
+<div id="pane-hodometro" style="display:none;">
+
+  <div class="hod-toolbar">
+    <div class="ck-search" style="max-width:260px;">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" id="hod-search" placeholder="Buscar por placa ou cliente…">
+    </div>
+    <div class="hod-legend">
+      <span><i class="hod-dot" style="background:var(--success)"></i> Dentro da franquia</span>
+      <span><i class="hod-dot" style="background:var(--danger)"></i> Excedente cobrado</span>
+      <span><i class="hod-dot" style="background:var(--warning)"></i> Semana sem envio</span>
+    </div>
+  </div>
+
+  <div id="hod-status" style="padding:22px;text-align:center;color:var(--text-muted);font-size:0.85rem;">
+    Carregando hodômetros…
+  </div>
+
+  <div class="hod-scroll" id="hod-scroll" style="display:none;">
+    <table class="hod-table" id="hod-table">
+      <thead id="hod-thead"></thead>
+      <tbody id="hod-tbody"></tbody>
+      <tfoot id="hod-tfoot"></tfoot>
+    </table>
+  </div>
+
+  <p style="margin-top:10px;font-size:0.74rem;color:var(--text-muted);">
+    Digite a leitura do painel (o valor absoluto da foto), não o rodado da semana.
+    Aceita duas casas decimais e salva sozinho ao sair do campo. Apagar o campo remove o lançamento.
+  </p>
+</div>
+
 <!-- ═══════════ MODAL ═══════════ -->
 <div class="ck-overlay" id="ck-overlay" onclick="fecharModalOverlay(event)">
   <div class="ck-modal" id="ck-modal">
@@ -766,6 +928,10 @@
           Adicionar item
         </button>
       </div>
+
+      <!-- Hodômetro da placa -->
+      <div class="ck-section-lbl" style="margin-top:22px;">Hodômetro</div>
+      <div id="modal-hod"></div>
     </div>
 
     <!-- Footer -->
@@ -918,6 +1084,8 @@ var _badgeData = {{ badge_data | tojson }};
       .catch(function () {
         document.getElementById('modal-loading').textContent = 'Erro ao carregar checklist.';
       });
+
+    if (window.hodCarregarNoModal) window.hodCarregarNoModal(veiculo.placa);
   };
 
   window.fecharModal = function () {
@@ -1121,6 +1289,243 @@ var _badgeData = {{ badge_data | tojson }};
   function _esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+
+})();
+</script>
+
+<!-- ═══════════ Hodômetros ═══════════ -->
+<script>
+(function () {
+
+  var _dados      = null;   /* resposta de /api/hodometros */
+  var _expandidos = {};     /* ym -> true, meses fechados que o usuário abriu */
+  var _busca      = '';
+  var _carregado  = false;
+
+  var fmtBR = function (n, casas) {
+    return Number(n).toLocaleString('pt-BR', {
+      minimumFractionDigits: casas === undefined ? 2 : casas,
+      maximumFractionDigits: casas === undefined ? 2 : casas
+    });
+  };
+  var esc = function (s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  };
+
+  /* Colunas realmente visíveis: mês aberto mostra todas as segundas; mês
+     encerrado mostra só a última, até o usuário clicar para expandir. */
+  function colunasVisiveis() {
+    var cols = [];
+    _dados.grupos.forEach(function (g) {
+      var aberto = g.aberto || _expandidos[g.ym];
+      var segs   = aberto ? g.segundas
+                          : g.segundas.filter(function (s) { return s.iso === g.resumo; });
+      segs.forEach(function (s, i) {
+        cols.push({ iso: s.iso, label: s.label, ym: g.ym, primeira: i === 0 });
+      });
+    });
+    return cols;
+  }
+
+  function render() {
+    var cols = colunasVisiveis();
+
+    /* ── Cabeçalho: linha de meses + linha de dias ── */
+    var h1 = '<tr><th class="hod-col-placa" rowspan="2">Placa</th>';
+    _dados.grupos.forEach(function (g) {
+      var aberto = g.aberto || _expandidos[g.ym];
+      var span   = aberto ? g.segundas.length : 1;
+      var caret  = g.aberto ? '' :
+        '<span class="caret">' + (_expandidos[g.ym] ? '▾' : '▸') + '</span>';
+      h1 += '<th class="hod-mes-head" colspan="' + span + '"' +
+            (g.aberto ? '' : ' data-ym="' + g.ym + '" title="Clique para ' +
+              (_expandidos[g.ym] ? 'recolher' : 'expandir') + ' o mês"') +
+            '>' + esc(g.label) + caret + '</th>';
+    });
+    h1 += '<th class="hod-total-col" rowspan="2">Total</th></tr>';
+
+    var h2 = '<tr>';
+    cols.forEach(function (c) {
+      h2 += '<th class="' + (c.primeira ? 'mes-start' : '') + '">' + c.label + '</th>';
+    });
+    h2 += '</tr>';
+    document.getElementById('hod-thead').innerHTML = h1 + h2;
+
+    /* ── Corpo ── */
+    var linhas = _dados.linhas.filter(function (l) {
+      if (!_busca) return true;
+      return (l.placa + ' ' + l.cliente).toLowerCase().indexOf(_busca) !== -1;
+    });
+
+    var html = '';
+    linhas.forEach(function (l) {
+      var tip = l.cliente + (l.modelo ? ' — ' + l.modelo : '') +
+                (l.contrato ? ' (' + l.contrato + ')' : '');
+      html += '<tr data-placa="' + esc(l.placa) + '">';
+      html += '<td class="hod-col-placa"><div class="hod-placa-cell" title="' + esc(tip) + '">' +
+              '<span class="hod-placa-txt">' + esc(l.placa) + '</span>' +
+              '<span class="hod-placa-sub">' + esc(l.cliente) + '</span></div></td>';
+
+      cols.forEach(function (c) {
+        var cel = l.celulas[c.iso];
+        html += '<td class="hod-cell' + (c.primeira ? ' mes-start' : '') + '">' +
+                '<input type="number" step="0.01" min="0" class="hod-input" ' +
+                  'value="' + (cel ? cel.km : '') + '" ' +
+                  'data-placa="' + esc(l.placa) + '" data-data="' + c.iso + '" ' +
+                  'placeholder="—">' +
+                '<div class="hod-sub ' + (cel ? cel.status : '') + '">' +
+                  legenda(cel) + '</div></td>';
+      });
+
+      html += '<td class="hod-total-col"><span class="hod-total-val' +
+              (l.total > 0 ? ' cobrar' : '') + '">' +
+              (l.total > 0 ? 'R$ ' + fmtBR(l.total) : '—') + '</span></td>';
+      html += '</tr>';
+    });
+    document.getElementById('hod-tbody').innerHTML = html ||
+      '<tr><td class="hod-col-placa" colspan="' + (cols.length + 2) +
+      '" style="padding:20px;text-align:center;color:var(--text-muted);">Nenhum veículo encontrado.</td></tr>';
+
+    var totalVis = linhas.reduce(function (s, l) { return s + l.total; }, 0);
+    document.getElementById('hod-tfoot').innerHTML =
+      '<tr class="hod-foot"><td class="hod-col-placa">' + linhas.length + ' veículo(s)</td>' +
+      '<td colspan="' + cols.length + '"></td>' +
+      '<td class="hod-total-col">R$ ' + fmtBR(totalVis) + '</td></tr>';
+
+    document.getElementById('hod-status').style.display = 'none';
+    document.getElementById('hod-scroll').style.display = '';
+  }
+
+  /* Texto sob cada célula: o porquê do valor, sem precisar abrir nada. */
+  function legenda(cel) {
+    if (!cel) return '';
+    switch (cel.status) {
+      case 'base':      return 'leitura inicial';
+      case 'lacuna':    return '⚠ sem envio anterior';
+      case 'erro':      return '⚠ menor que a anterior';
+      case 'ok':        return fmtBR(cel.rodado, 0) + ' km';
+      case 'excedente': return '+' + fmtBR(cel.excedente, 0) + ' km · R$ ' + fmtBR(cel.valor);
+    }
+    return '';
+  }
+
+  function carregar() {
+    return fetch('/api/hodometros')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.error) {
+          document.getElementById('hod-status').textContent = 'Erro: ' + d.error;
+          return;
+        }
+        _dados = d;
+        render();
+      })
+      .catch(function () {
+        document.getElementById('hod-status').textContent = 'Erro ao carregar os hodômetros.';
+      });
+  }
+
+  function salvar(input) {
+    var placa = input.dataset.placa, data = input.dataset.data;
+    var bruto = input.value.trim();
+    var antes = _dados.linhas.filter(function (l) { return l.placa === placa; })[0];
+    var atual = antes && antes.celulas[data] ? String(antes.celulas[data].km) : '';
+    if (bruto === atual) return;            /* nada mudou, não bate no banco */
+
+    input.classList.add('saving');
+    fetch('/api/hodometros', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ placa: placa, data: data, km: bruto === '' ? null : bruto })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        input.classList.remove('saving');
+        if (d.error) { alert('Não foi possível salvar: ' + d.error); return; }
+        /* Recarrega tudo: mudar uma leitura altera o cálculo da semana seguinte. */
+        carregar();
+      })
+      .catch(function () {
+        input.classList.remove('saving');
+        alert('Falha de conexão ao salvar.');
+      });
+  }
+
+  /* ── Eventos ── */
+  document.getElementById('hod-table').addEventListener('blur', function (e) {
+    if (e.target.classList.contains('hod-input')) salvar(e.target);
+  }, true);
+
+  document.getElementById('hod-table').addEventListener('keydown', function (e) {
+    if (e.target.classList.contains('hod-input') && e.key === 'Enter') e.target.blur();
+  });
+
+  document.getElementById('hod-thead').addEventListener('click', function (e) {
+    var th = e.target.closest('.hod-mes-head');
+    if (!th || !th.dataset.ym) return;
+    _expandidos[th.dataset.ym] = !_expandidos[th.dataset.ym];
+    render();
+  });
+
+  document.getElementById('hod-search').addEventListener('input', function (e) {
+    _busca = e.target.value.trim().toLowerCase();
+    if (_dados) render();
+  });
+
+  /* ── Abas ── */
+  window.ckSwitch = function (aba) {
+    var ehHod = aba === 'hodometro';
+    document.getElementById('pane-contratos').style.display = ehHod ? 'none' : '';
+    document.getElementById('pane-hodometro').style.display = ehHod ? '' : 'none';
+    document.getElementById('tab-btn-contratos').classList.toggle('on', !ehHod);
+    document.getElementById('tab-btn-hodometro').classList.toggle('on', ehHod);
+    if (ehHod && !_carregado) { _carregado = true; carregar(); }
+  };
+
+  /* ── Bloco dentro do modal do contrato ── */
+  window.hodCarregarNoModal = function (placa) {
+    var box = document.getElementById('modal-hod');
+    if (!box) return;
+    box.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:6px 0;">Carregando…</div>';
+
+    fetch('/api/hodometros/placa/' + encodeURIComponent(placa))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.error) { box.innerHTML = '<div style="color:var(--danger);font-size:0.8rem;">' + esc(d.error) + '</div>'; return; }
+
+        var h = '<div class="hod-modal-resumo">' +
+                '<span>Franquia: <b>' + fmtBR(d.franquia, 0) + ' km/semana</b></span>' +
+                '<span>Km extra: <b>R$ ' + fmtBR(d.valor_km) + '</b></span>' +
+                '<span>Total a cobrar: <b style="color:' + (d.total > 0 ? 'var(--danger)' : 'inherit') + '">R$ ' +
+                  fmtBR(d.total) + '</b></span></div>';
+
+        if (!d.historico.length) {
+          h += '<div style="color:var(--text-muted);font-size:0.8rem;padding:4px 0;">' +
+               'Nenhuma leitura registrada. Lance pela aba Hodômetros.</div>';
+        } else {
+          h += '<table class="hod-hist"><thead><tr>' +
+               '<th>Segunda</th><th style="text-align:right">Hodômetro</th>' +
+               '<th style="text-align:right">Rodado</th><th style="text-align:right">Excedente</th>' +
+               '<th style="text-align:right">Valor</th></tr></thead><tbody>';
+          d.historico.forEach(function (r) {
+            var p = r.data.split('-');
+            h += '<tr><td>' + p[2] + '/' + p[1] + '/' + p[0] + '</td>' +
+                 '<td class="num">' + fmtBR(r.km) + '</td>' +
+                 '<td class="num">' + (r.rodado == null ? '—' : fmtBR(r.rodado, 0) + ' km') + '</td>' +
+                 '<td class="num">' + (r.excedente > 0 ? fmtBR(r.excedente, 0) + ' km' : '—') + '</td>' +
+                 '<td class="num" style="' + (r.valor > 0 ? 'color:var(--danger);font-weight:700' : '') + '">' +
+                   (r.valor > 0 ? 'R$ ' + fmtBR(r.valor) : '—') + '</td></tr>';
+          });
+          h += '</tbody></table>';
+        }
+        box.innerHTML = h;
+      })
+      .catch(function () {
+        box.innerHTML = '<div style="color:var(--danger);font-size:0.8rem;">Erro ao carregar hodômetro.</div>';
+      });
+  };
 
 })();
 </script>
