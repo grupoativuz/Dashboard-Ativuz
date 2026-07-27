@@ -6082,22 +6082,27 @@ def _hod_segundas_do_mes(ano, mes):
     return segundas
 
 
-def _hod_calendario(hoje=None, primeiro_mes=None):
+def _hod_calendario(hoje=None, corte=None):
     """
     Monta os grupos de colunas da planilha.
+
+    `corte` é a primeira segunda-feira que faz sentido exibir — normalmente a
+    segunda do cadastro inicial. Segundas anteriores a ela nunca aparecem: são
+    semanas em que o controle ainda não existia e ficariam para sempre vazias.
 
     Regra de visibilidade pedida pela operação: o mês corrente fica aberto; ao
     alcançar a última segunda dele, o mês seguinte já abre junto. Meses
     encerrados ficam recolhidos, exibindo só a última segunda — o front deixa
     expandir sob demanda.
     """
-    hoje = hoje or date.today()
+    hoje  = hoje or date.today()
     atual = date(hoje.year, hoje.month, 1)
+    corte = corte or (hoje - timedelta(days=hoje.weekday()))
 
     segundas_atual = _hod_segundas_do_mes(atual.year, atual.month)
     abrir_proximo  = bool(segundas_atual) and hoje >= segundas_atual[-1]
 
-    inicio = primeiro_mes or atual
+    inicio = date(corte.year, corte.month, 1)
     if inicio > atual:
         inicio = atual
 
@@ -6107,7 +6112,7 @@ def _hod_calendario(hoje=None, primeiro_mes=None):
 
     grupos, cursor = [], inicio
     while cursor <= fim:
-        segundas = _hod_segundas_do_mes(cursor.year, cursor.month)
+        segundas = [d for d in _hod_segundas_do_mes(cursor.year, cursor.month) if d >= corte]
         if segundas:
             aberto = cursor >= atual
             grupos.append({
@@ -6211,14 +6216,16 @@ def api_hodometros_grid():
     for r in regs:
         por_placa.setdefault(r["placa"], {})[str(r["data_segunda"])] = float(r["km"])
 
-    # O calendário começa no mês da leitura mais antiga, para o histórico não sumir.
+    # A grade começa na leitura mais antiga já registrada; enquanto não houver
+    # nenhuma, começa na segunda desta semana — assim as semanas anteriores ao
+    # início do controle não poluem a tela com colunas eternamente vazias.
+    hoje        = date.today()
+    corte       = hoje - timedelta(days=hoje.weekday())
     todas_datas = [d for m in por_placa.values() for d in m]
-    primeiro = None
     if todas_datas:
-        d0 = date.fromisoformat(min(todas_datas))
-        primeiro = date(d0.year, d0.month, 1)
+        corte = min(corte, date.fromisoformat(min(todas_datas)))
 
-    grupos = _hod_calendario(primeiro_mes=primeiro)
+    grupos = _hod_calendario(hoje=hoje, corte=corte)
 
     linhas = []
     for v in veiculos:

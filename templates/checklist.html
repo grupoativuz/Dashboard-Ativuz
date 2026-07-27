@@ -613,10 +613,17 @@
 
   .hod-mes-head {
     border-left: 2px solid var(--line);
-    color: var(--text) !important; cursor: pointer; user-select: none;
+    color: var(--text) !important; user-select: none;
   }
-  .hod-mes-head:hover { color: var(--primary) !important; }
+  .hod-mes-head[data-ym] { cursor: pointer; }
+  .hod-mes-head[data-ym]:hover { color: var(--primary) !important; }
   .hod-mes-head .caret { font-size: 0.6rem; opacity: .6; margin-left: 4px; }
+  /* O mês pode ocupar uma faixa mais larga que a tela; o rótulo fica grudado
+     na área visível para não sumir (nem parecer torto) ao rolar na horizontal. */
+  .hod-mes-lbl {
+    display: inline-block;
+    position: sticky; left: 214px; right: 12px;   /* 190px da coluna + 2×12 de padding */
+  }
 
   .hod-cell { text-align: center; border-left: 1px solid var(--line); min-width: 96px; }
   .hod-cell.mes-start { border-left: 2px solid var(--line); }
@@ -1342,7 +1349,7 @@ var _badgeData = {{ badge_data | tojson }};
       h1 += '<th class="hod-mes-head" colspan="' + span + '"' +
             (g.aberto ? '' : ' data-ym="' + g.ym + '" title="Clique para ' +
               (_expandidos[g.ym] ? 'recolher' : 'expandir') + ' o mês"') +
-            '>' + esc(g.label) + caret + '</th>';
+            '><span class="hod-mes-lbl">' + esc(g.label) + caret + '</span></th>';
     });
     h1 += '<th class="hod-total-col" rowspan="2">Total</th></tr>';
 
