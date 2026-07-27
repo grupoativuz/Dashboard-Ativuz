@@ -598,18 +598,15 @@
   .hod-col-placa {
     position: sticky; left: 0; z-index: 2;
     background: var(--surface); text-align: left !important;
-    padding: 8px 12px !important; min-width: 190px;
+    padding: 8px 12px !important; width: 124px; min-width: 124px;
     border-right: 1px solid var(--line);
   }
   thead .hod-col-placa { z-index: 4; background: var(--surface-2); }
   .hod-table tbody tr:hover .hod-col-placa { background: var(--surface-2); }
 
-  .hod-placa-cell { display: flex; flex-direction: column; gap: 2px; cursor: help; }
+  /* Só a placa fica visível; cliente, modelo e contrato vêm no tooltip. */
+  .hod-placa-cell { cursor: help; }
   .hod-placa-txt  { font-weight: 700; letter-spacing: .04em; color: var(--text); }
-  .hod-placa-sub  {
-    font-size: 0.7rem; color: var(--text-muted);
-    max-width: 175px; overflow: hidden; text-overflow: ellipsis;
-  }
 
   .hod-mes-head {
     border-left: 2px solid var(--line);
@@ -622,7 +619,7 @@
      na área visível para não sumir (nem parecer torto) ao rolar na horizontal. */
   .hod-mes-lbl {
     display: inline-block;
-    position: sticky; left: 214px; right: 12px;   /* 190px da coluna + 2×12 de padding */
+    position: sticky; left: 148px; right: 12px;   /* 124px da coluna + 2×12 de padding */
   }
 
   .hod-cell { text-align: center; border-left: 1px solid var(--line); min-width: 96px; }
@@ -1372,8 +1369,7 @@ var _badgeData = {{ badge_data | tojson }};
                 (l.contrato ? ' (' + l.contrato + ')' : '');
       html += '<tr data-placa="' + esc(l.placa) + '">';
       html += '<td class="hod-col-placa"><div class="hod-placa-cell" title="' + esc(tip) + '">' +
-              '<span class="hod-placa-txt">' + esc(l.placa) + '</span>' +
-              '<span class="hod-placa-sub">' + esc(l.cliente) + '</span></div></td>';
+              '<span class="hod-placa-txt">' + esc(l.placa) + '</span></div></td>';
 
       cols.forEach(function (c) {
         var cel = l.celulas[c.iso];
