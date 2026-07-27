@@ -6219,8 +6219,12 @@ def api_hodometros_grid():
     # A grade começa na leitura mais antiga já registrada; enquanto não houver
     # nenhuma, começa na segunda desta semana — assim as semanas anteriores ao
     # início do controle não poluem a tela com colunas eternamente vazias.
+    # `voltar` abre semanas anteriores sob demanda: sem isso não haveria onde
+    # digitar a leitura de base da primeira semana, já que a coluna só existiria
+    # depois que o dado existisse.
+    voltar      = max(0, min(request.args.get("voltar", 0, type=int) or 0, 104))
     hoje        = date.today()
-    corte       = hoje - timedelta(days=hoje.weekday())
+    corte       = hoje - timedelta(days=hoje.weekday()) - timedelta(weeks=voltar)
     todas_datas = [d for m in por_placa.values() for d in m]
     if todas_datas:
         corte = min(corte, date.fromisoformat(min(todas_datas)))

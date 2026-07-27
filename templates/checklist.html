@@ -837,6 +837,9 @@
       </svg>
       <input type="text" id="hod-search" placeholder="Buscar por placa ou cliente…">
     </div>
+    <button class="fpill" id="hod-voltar" title="Abre a segunda-feira anterior para lançar leituras retroativas">
+      ◀ Semana anterior
+    </button>
     <div class="hod-legend">
       <span><i class="hod-dot" style="background:var(--success)"></i> Dentro da franquia</span>
       <span><i class="hod-dot" style="background:var(--danger)"></i> Excedente cobrado</span>
@@ -1305,6 +1308,7 @@ var _badgeData = {{ badge_data | tojson }};
   var _expandidos = {};     /* ym -> true, meses fechados que o usuário abriu */
   var _busca      = '';
   var _carregado  = false;
+  var _voltar     = 0;      /* semanas abertas para trás além do início padrão */
 
   var fmtBR = function (n, casas) {
     return Number(n).toLocaleString('pt-BR', {
@@ -1415,7 +1419,7 @@ var _badgeData = {{ badge_data | tojson }};
   }
 
   function carregar() {
-    return fetch('/api/hodometros')
+    return fetch('/api/hodometros?voltar=' + _voltar)
       .then(function (r) { return r.json(); })
       .then(function (d) {
         if (d.error) {
@@ -1470,6 +1474,11 @@ var _badgeData = {{ badge_data | tojson }};
     if (!th || !th.dataset.ym) return;
     _expandidos[th.dataset.ym] = !_expandidos[th.dataset.ym];
     render();
+  });
+
+  document.getElementById('hod-voltar').addEventListener('click', function () {
+    _voltar += 1;
+    carregar();
   });
 
   document.getElementById('hod-search').addEventListener('input', function (e) {
