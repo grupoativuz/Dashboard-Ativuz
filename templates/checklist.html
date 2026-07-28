@@ -586,19 +586,19 @@
   .hod-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
   .hod-table th, .hod-table td {
     border-bottom: 1px solid var(--line); padding: 0;
-    font-size: 0.8rem; white-space: nowrap;
+    font-size: 0.78rem; white-space: nowrap;
   }
   .hod-table thead th {
     position: sticky; top: 0; z-index: 3;
     background: var(--surface-2); color: var(--text-muted);
-    font-weight: 600; font-size: 0.72rem; text-transform: uppercase;
-    letter-spacing: .04em; padding: 9px 10px; text-align: center;
+    font-weight: 600; font-size: 0.68rem; text-transform: uppercase;
+    letter-spacing: .03em; padding: 6px 6px; text-align: center;
   }
   /* Coluna da placa fixa na horizontal, para não perder a referência ao rolar */
   .hod-col-placa {
     position: sticky; left: 0; z-index: 2;
     background: var(--surface); text-align: left !important;
-    padding: 8px 12px !important; width: 124px; min-width: 124px;
+    padding: 6px 10px !important; width: 104px; min-width: 104px;
     border-right: 1px solid var(--line);
   }
   thead .hod-col-placa { z-index: 4; background: var(--surface-2); }
@@ -619,10 +619,10 @@
      na área visível para não sumir (nem parecer torto) ao rolar na horizontal. */
   .hod-mes-lbl {
     display: inline-block;
-    position: sticky; left: 148px; right: 12px;   /* 124px da coluna + 2×12 de padding */
+    position: sticky; left: 124px; right: 10px;   /* 104px da coluna + 2×10 de padding */
   }
 
-  .hod-cell { text-align: center; border-left: 1px solid var(--line); min-width: 96px; }
+  .hod-cell { text-align: center; border-left: 1px solid var(--line); min-width: 74px; }
   .hod-cell.mes-start { border-left: 2px solid var(--line); }
   /* Terceirização: uma leitura por mês, ocupando o espaço das segundas */
   .hod-cell-mensal { background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
@@ -630,7 +630,7 @@
 
   .hod-input {
     width: 100%; border: none; background: transparent;
-    padding: 8px 6px 2px; text-align: center; font-size: 0.82rem;
+    padding: 5px 3px 1px; text-align: center; font-size: 0.78rem;
     color: var(--text); font-family: inherit; -moz-appearance: textfield;
   }
   .hod-input::-webkit-outer-spin-button,
@@ -642,8 +642,8 @@
   .hod-input.saving { opacity: .5; }
 
   .hod-sub {
-    font-size: 0.66rem; padding: 0 4px 6px; min-height: 15px;
-    color: var(--text-muted); line-height: 1.2;
+    font-size: 0.62rem; padding: 0 3px 4px; min-height: 13px;
+    color: var(--text-muted); line-height: 1.15;
   }
   .hod-sub.ok        { color: var(--success); }
   .hod-sub.excedente { color: var(--danger); font-weight: 700; }
@@ -651,7 +651,10 @@
   .hod-sub.erro      { color: var(--danger); font-weight: 600; }
   .hod-sub.base      { color: var(--text-muted); font-style: italic; }
 
-  .hod-total-col { border-left: 2px solid var(--line); text-align: right !important; padding: 8px 14px !important; }
+  .hod-total-col {
+    border-left: 2px solid var(--line); text-align: right !important;
+    padding: 6px 10px !important; min-width: 78px;
+  }
   .hod-total-val { font-weight: 700; color: var(--text); }
   .hod-total-val.cobrar { color: var(--danger); }
 
