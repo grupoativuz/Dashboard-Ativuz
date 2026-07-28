@@ -6077,13 +6077,16 @@ _HOD_FRANQUIA_POR_MODELO = [
 ]
 
 
-# Terceirização de frota: o cliente terceiriza a operação inteira e a leitura do
-# hodômetro é mensal, não semanal — 4.000 km por mês, em qualquer dia do mês.
+# Contratos de leitura mensal (terceirização de frota e carro por assinatura):
+# o hodômetro é registrado uma vez por mês, em qualquer dia, com franquia de
+# 4.000 km no mês em vez da franquia semanal.
 _HOD_FRANQUIA_MENSAL = 4000.0
+_HOD_TIPOS_MENSAIS   = ("TERCEIR", "ASSINATURA")
 
 
 def _hod_e_mensal(tipo_contrato):
-    return "TERCEIR" in (tipo_contrato or "").upper()
+    t = (tipo_contrato or "").upper()
+    return any(chave in t for chave in _HOD_TIPOS_MENSAIS)
 
 
 def _hod_franquia_do_modelo(modelo):
