@@ -624,6 +624,9 @@
 
   .hod-cell { text-align: center; border-left: 1px solid var(--line); min-width: 96px; }
   .hod-cell.mes-start { border-left: 2px solid var(--line); }
+  /* Terceirização: uma leitura por mês, ocupando o espaço das segundas */
+  .hod-cell-mensal { background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
+  .hod-cell-mensal .hod-input::placeholder { font-size: 0.72rem; opacity: .55; }
 
   .hod-input {
     width: 100%; border: none; background: transparent;
@@ -843,7 +846,8 @@
     <div class="hod-legend">
       <span><i class="hod-dot" style="background:var(--success)"></i> Dentro da franquia</span>
       <span><i class="hod-dot" style="background:var(--danger)"></i> Excedente cobrado</span>
-      <span><i class="hod-dot" style="background:var(--warning)"></i> Semana sem envio</span>
+      <span><i class="hod-dot" style="background:var(--warning)"></i> Período sem envio</span>
+      <span><i class="hod-dot" style="background:var(--ink-3)"></i> Terceirização: leitura mensal</span>
     </div>
   </div>
 
@@ -1370,21 +1374,40 @@ var _badgeData = {{ badge_data | tojson }};
     var html = '';
     linhas.forEach(function (l) {
       var tip = l.cliente + (l.modelo ? ' — ' + l.modelo : '') +
-                (l.contrato ? ' (' + l.contrato + ')' : '');
+                (l.contrato ? ' (' + l.contrato + ')' : '') +
+                ' · ' + fmtBR(l.franquia, 0) + ' km/' + (l.mensal ? 'mês' : 'semana');
       html += '<tr data-placa="' + esc(l.placa) + '">';
       html += '<td class="hod-col-placa"><div class="hod-placa-cell" title="' + esc(tip) + '">' +
               '<span class="hod-placa-txt">' + esc(l.placa) + '</span></div></td>';
 
-      cols.forEach(function (c) {
-        var cel = l.celulas[c.iso];
-        html += '<td class="hod-cell' + (c.primeira ? ' mes-start' : '') + '">' +
-                '<input type="number" step="0.01" min="0" class="hod-input" ' +
-                  'value="' + (cel ? cel.km : '') + '" ' +
-                  'data-placa="' + esc(l.placa) + '" data-data="' + c.iso + '" ' +
-                  'placeholder="—">' +
-                '<div class="hod-sub ' + (cel ? cel.status : '') + '">' +
-                  legenda(cel) + '</div></td>';
-      });
+      if (l.mensal) {
+        /* Leitura mensal: um único campo ocupando o espaço das segundas do mês.
+           A data gravada é a última segunda — a mesma coluna que sobra quando o
+           mês é recolhido, então o alinhamento se mantém. */
+        _dados.grupos.forEach(function (g) {
+          var aberto = g.aberto || _expandidos[g.ym];
+          var span   = aberto ? g.segundas.length : 1;
+          var cel    = l.celulas[g.resumo];
+          html += '<td class="hod-cell mes-start hod-cell-mensal" colspan="' + span + '">' +
+                  '<input type="number" step="0.01" min="0" class="hod-input" ' +
+                    'value="' + (cel ? cel.km : '') + '" ' +
+                    'data-placa="' + esc(l.placa) + '" data-data="' + g.resumo + '" ' +
+                    'placeholder="— mensal —">' +
+                  '<div class="hod-sub ' + (cel ? cel.status : '') + '">' +
+                    legenda(cel) + '</div></td>';
+        });
+      } else {
+        cols.forEach(function (c) {
+          var cel = l.celulas[c.iso];
+          html += '<td class="hod-cell' + (c.primeira ? ' mes-start' : '') + '">' +
+                  '<input type="number" step="0.01" min="0" class="hod-input" ' +
+                    'value="' + (cel ? cel.km : '') + '" ' +
+                    'data-placa="' + esc(l.placa) + '" data-data="' + c.iso + '" ' +
+                    'placeholder="—">' +
+                  '<div class="hod-sub ' + (cel ? cel.status : '') + '">' +
+                    legenda(cel) + '</div></td>';
+        });
+      }
 
       html += '<td class="hod-total-col"><span class="hod-total-val' +
               (l.total > 0 ? ' cobrar' : '') + '">' +
@@ -1508,7 +1531,8 @@ var _badgeData = {{ badge_data | tojson }};
         if (d.error) { box.innerHTML = '<div style="color:var(--danger);font-size:0.8rem;">' + esc(d.error) + '</div>'; return; }
 
         var h = '<div class="hod-modal-resumo">' +
-                '<span>Franquia: <b>' + fmtBR(d.franquia, 0) + ' km/semana</b></span>' +
+                '<span>Franquia: <b>' + fmtBR(d.franquia, 0) + ' km/' +
+                  (d.mensal ? 'mês' : 'semana') + '</b></span>' +
                 '<span>Km extra: <b>R$ ' + fmtBR(d.valor_km) + '</b></span>' +
                 '<span>Total a cobrar: <b style="color:' + (d.total > 0 ? 'var(--danger)' : 'inherit') + '">R$ ' +
                   fmtBR(d.total) + '</b></span></div>';

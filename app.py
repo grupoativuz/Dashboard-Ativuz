@@ -5843,6 +5843,7 @@ def _ler_veiculos():
         i_unidade  = _ci("unidade do veiculo") or _ci("unidade")
         i_inicio   = _ci("inicio de contrato") or _ci("inicio")
         i_termino  = _ci("termino de contrato") or _ci("termino")
+        i_tipo     = _ci("tipo de contrato")
 
         def _v(row, i):
             if i is None or i >= len(row):
@@ -5869,6 +5870,7 @@ def _ler_veiculos():
                 "unidade":  _v(row, i_unidade),
                 "inicio":   _v(row, i_inicio),
                 "termino":  _v(row, i_termino),
+                "tipo":     _v(row, i_tipo),
                 "imagem":   img,
                 "blend":    img in _BLEND_MULTIPLY if img else False,
             }
@@ -6075,12 +6077,34 @@ _HOD_FRANQUIA_POR_MODELO = [
 ]
 
 
+# Terceirização de frota: o cliente terceiriza a operação inteira e a leitura do
+# hodômetro é mensal, não semanal — 4.000 km por mês, em qualquer dia do mês.
+_HOD_FRANQUIA_MENSAL = 4000.0
+
+
+def _hod_e_mensal(tipo_contrato):
+    return "TERCEIR" in (tipo_contrato or "").upper()
+
+
 def _hod_franquia_do_modelo(modelo):
     m = (modelo or "").upper()
     for chave, franquia in _HOD_FRANQUIA_POR_MODELO:
         if chave in m:
             return franquia
     return _HOD_FRANQUIA_PADRAO
+
+
+def _hod_franquia_do_veiculo(veiculo, cfg):
+    """
+    Precedência: cadastro manual da placa > terceirização (mensal) > modelo.
+    Devolve (franquia, mensal).
+    """
+    mensal = _hod_e_mensal(veiculo.get("tipo"))
+    if cfg.get("franquia_km"):
+        return float(cfg["franquia_km"]), mensal
+    if mensal:
+        return _HOD_FRANQUIA_MENSAL, True
+    return _hod_franquia_do_modelo(veiculo.get("modelo")), False
 
 _MESES_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
              "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
@@ -6166,16 +6190,17 @@ def _hod_parse_km(valor):
     return float(s)
 
 
-def _hod_calcular(leituras, franquia, valor_km):
+def _hod_calcular(leituras, franquia, valor_km, mensal=False):
     """
     leituras: {data_iso: km}. Devolve {data_iso: {...}} com o cálculo de cada
-    semana, comparando cada leitura com a imediatamente anterior registrada.
+    período, comparando cada leitura com a imediatamente anterior registrada.
+    Em contratos mensais o período é o mês; nos demais, a semana.
 
     status:
       base      primeira leitura da placa — marco zero, não gera cobrança
       ok        rodou dentro da franquia
       excedente rodou acima da franquia
-      lacuna    pulou uma ou mais segundas; sinalizado e não cobrado
+      lacuna    pulou um período; sinalizado e não cobrado
       erro      leitura menor que a anterior (troca de painel ou digitação)
     """
     datas = sorted(leituras.keys())
@@ -6188,13 +6213,19 @@ def _hod_calcular(leituras, franquia, valor_km):
         if anterior is not None:
             d_ant  = date.fromisoformat(anterior)
             d_atu  = date.fromisoformat(iso)
-            semanas = (d_atu - d_ant).days / 7.0
-            rodado  = km - float(leituras[anterior])
+            rodado = km - float(leituras[anterior])
             info["rodado"] = rodado
+
+            if mensal:
+                # Meses de calendário: a data gravada é a última segunda do mês,
+                # então meses consecutivos distam exatamente 1.
+                pulou = (d_atu.year * 12 + d_atu.month) - (d_ant.year * 12 + d_ant.month) > 1
+            else:
+                pulou = (d_atu - d_ant).days / 7.0 > 1.01
 
             if rodado < 0:
                 info["status"] = "erro"
-            elif semanas > 1.01:
+            elif pulou:
                 info["status"] = "lacuna"
             else:
                 # Arredonda o excedente antes de multiplicar: a subtração de
@@ -6260,11 +6291,11 @@ def api_hodometros_grid():
         placa = v["placa"]
         if placa.strip().upper() in vendidas:
             continue
-        cfg      = cfg_map.get(placa, {})
-        franquia = float(cfg.get("franquia_km") or _hod_franquia_do_modelo(v["modelo"]))
-        valor_km = float(cfg.get("valor_km_extra") or _HOD_VALOR_KM_PADRAO)
+        cfg               = cfg_map.get(placa, {})
+        franquia, mensal  = _hod_franquia_do_veiculo(v, cfg)
+        valor_km          = float(cfg.get("valor_km_extra") or _HOD_VALOR_KM_PADRAO)
 
-        celulas = _hod_calcular(por_placa.get(placa, {}), franquia, valor_km)
+        celulas = _hod_calcular(por_placa.get(placa, {}), franquia, valor_km, mensal)
         linhas.append({
             "placa":     placa,
             "modelo":    v["modelo"],
@@ -6273,6 +6304,7 @@ def api_hodometros_grid():
             "unidade":   v["unidade"],
             "franquia":  franquia,
             "valor_km":  valor_km,
+            "mensal":    mensal,
             "celulas":   celulas,
             "total":     _hod_dinheiro(sum(c["valor"] for c in celulas.values())),
         })
@@ -6346,20 +6378,21 @@ def api_hodometros_placa(placa):
         return jsonify({"error": str(e)}), 500
 
     veiculos, _ = _ler_veiculos()
-    modelo = next((v["modelo"] for v in veiculos if v["placa"].strip().upper() == placa), "")
+    veiculo = next((v for v in veiculos if v["placa"].strip().upper() == placa), {})
 
-    c        = cfg[0] if cfg else {}
-    franquia = float(c.get("franquia_km") or _hod_franquia_do_modelo(modelo))
-    valor_km = float(c.get("valor_km_extra") or _HOD_VALOR_KM_PADRAO)
+    c                 = cfg[0] if cfg else {}
+    franquia, mensal  = _hod_franquia_do_veiculo(veiculo, c)
+    valor_km          = float(c.get("valor_km_extra") or _HOD_VALOR_KM_PADRAO)
 
     leituras = {str(r["data_segunda"]): float(r["km"]) for r in regs}
-    celulas  = _hod_calcular(leituras, franquia, valor_km)
+    celulas  = _hod_calcular(leituras, franquia, valor_km, mensal)
 
     historico = [dict(data=iso, **celulas[iso]) for iso in sorted(celulas, reverse=True)]
     return jsonify({
         "placa":     placa,
         "franquia":  franquia,
         "valor_km":  valor_km,
+        "mensal":    mensal,
         "historico": historico,
         "total":     _hod_dinheiro(sum(h["valor"] for h in historico)),
     })
