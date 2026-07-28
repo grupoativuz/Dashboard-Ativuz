@@ -6207,8 +6207,15 @@ def api_hodometros_grid():
     try:
         regs = sb.table("hodometros").select("placa, data_segunda, km").execute().data or []
         cfgs = sb.table("hodometro_config").select("*").execute().data or []
+        # Carro vendido sai da frota e não tem mais hodômetro a controlar. A
+        # fonte da verdade é o flag da página de financiamentos, para não haver
+        # lista de placas duplicada aqui.
+        vend = sb.table("financiamentos_contratos").select("placa, vendido").execute().data or []
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+    vendidas = {(r.get("placa") or "").strip().upper() for r in vend if r.get("vendido")}
+    vendidas.discard("")
 
     cfg_map = {c["placa"]: c for c in cfgs}
 
@@ -6233,7 +6240,9 @@ def api_hodometros_grid():
 
     linhas = []
     for v in veiculos:
-        placa    = v["placa"]
+        placa = v["placa"]
+        if placa.strip().upper() in vendidas:
+            continue
         cfg      = cfg_map.get(placa, {})
         franquia = float(cfg.get("franquia_km") or _HOD_FRANQUIA_PADRAO)
         valor_km = float(cfg.get("valor_km_extra") or _HOD_VALOR_KM_PADRAO)
