@@ -6065,6 +6065,23 @@ def api_checklist_delete_item(item_id):
 _HOD_FRANQUIA_PADRAO = 1500.0
 _HOD_VALOR_KM_PADRAO = 0.50
 
+# Franquia diferenciada por modelo: os BYD são contratados com 2.000 km/semana.
+# A regra é do modelo, não da placa — carro novo do mesmo tipo já entra certo,
+# sem cadastro manual. Uma linha em hodometro_config ainda vence isto, para o
+# caso de um contrato específico fugir da regra.
+_HOD_FRANQUIA_POR_MODELO = [
+    ("DOLPHIN", 2000.0),
+    ("BYD",     2000.0),
+]
+
+
+def _hod_franquia_do_modelo(modelo):
+    m = (modelo or "").upper()
+    for chave, franquia in _HOD_FRANQUIA_POR_MODELO:
+        if chave in m:
+            return franquia
+    return _HOD_FRANQUIA_PADRAO
+
 _MESES_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
              "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
@@ -6244,7 +6261,7 @@ def api_hodometros_grid():
         if placa.strip().upper() in vendidas:
             continue
         cfg      = cfg_map.get(placa, {})
-        franquia = float(cfg.get("franquia_km") or _HOD_FRANQUIA_PADRAO)
+        franquia = float(cfg.get("franquia_km") or _hod_franquia_do_modelo(v["modelo"]))
         valor_km = float(cfg.get("valor_km_extra") or _HOD_VALOR_KM_PADRAO)
 
         celulas = _hod_calcular(por_placa.get(placa, {}), franquia, valor_km)
@@ -6328,8 +6345,11 @@ def api_hodometros_placa(placa):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+    veiculos, _ = _ler_veiculos()
+    modelo = next((v["modelo"] for v in veiculos if v["placa"].strip().upper() == placa), "")
+
     c        = cfg[0] if cfg else {}
-    franquia = float(c.get("franquia_km") or _HOD_FRANQUIA_PADRAO)
+    franquia = float(c.get("franquia_km") or _hod_franquia_do_modelo(modelo))
     valor_km = float(c.get("valor_km_extra") or _HOD_VALOR_KM_PADRAO)
 
     leituras = {str(r["data_segunda"]): float(r["km"]) for r in regs}
