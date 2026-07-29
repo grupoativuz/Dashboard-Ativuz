@@ -624,6 +624,30 @@
 
   .hod-cell { text-align: center; border-left: 1px solid var(--line); min-width: 74px; }
   .hod-cell.mes-start { border-left: 2px solid var(--line); }
+  /* ── Linha de veículo BYD ──
+     Fundo azul-claro fixo para a linha ser reconhecida de relance. O texto é
+     preto: contra #87CEFA o contraste é ~12:1 com preto e ~1,7:1 com branco.
+     As cores de status são escurecidas em vez de trocadas por preto, para não
+     perder a leitura de "dentro da franquia" x "excedente" x "sem envio". */
+  .hod-row-byd > td,
+  .hod-row-byd .hod-col-placa,
+  .hod-table tbody tr.hod-row-byd:hover .hod-col-placa {
+    background: #87CEFA !important;
+    color: #000;
+  }
+  .hod-row-byd .hod-placa-txt,
+  .hod-row-byd .hod-input,
+  .hod-row-byd .hod-total-val { color: #000; }
+  .hod-row-byd .hod-input::placeholder { color: rgba(0, 0, 0, .45); }
+  .hod-row-byd .hod-input:focus { background: rgba(255, 255, 255, .45); }
+  .hod-row-byd .hod-cell-mensal   { background: #7CC3EF !important; }
+  .hod-row-byd .hod-sub           { color: rgba(0, 0, 0, .70); }
+  .hod-row-byd .hod-sub.ok        { color: #0A5C33; }
+  .hod-row-byd .hod-sub.excedente,
+  .hod-row-byd .hod-sub.erro,
+  .hod-row-byd .hod-total-val.cobrar { color: #7F1420; }
+  .hod-row-byd .hod-sub.lacuna    { color: #6B3E00; }
+
   /* Terceirização: uma leitura por mês, ocupando o espaço das segundas */
   .hod-cell-mensal { background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
   .hod-cell-mensal .hod-input::placeholder { font-size: 0.72rem; opacity: .55; }
@@ -1379,7 +1403,8 @@ var _badgeData = {{ badge_data | tojson }};
       var tip = l.cliente + (l.modelo ? ' — ' + l.modelo : '') +
                 (l.contrato ? ' (' + l.contrato + ')' : '') +
                 ' · ' + fmtBR(l.franquia, 0) + ' km/' + (l.mensal ? 'mês' : 'semana');
-      html += '<tr data-placa="' + esc(l.placa) + '">';
+      html += '<tr data-placa="' + esc(l.placa) + '"' +
+              (l.byd ? ' class="hod-row-byd"' : '') + '>';
       html += '<td class="hod-col-placa"><div class="hod-placa-cell" title="' + esc(tip) + '">' +
               '<span class="hod-placa-txt">' + esc(l.placa) + '</span></div></td>';
 

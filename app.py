@@ -6089,6 +6089,12 @@ def _hod_e_mensal(tipo_contrato):
     return any(chave in t for chave in _HOD_TIPOS_MENSAIS)
 
 
+def _hod_e_byd(modelo):
+    """Os BYD ganham cor própria na grade, para serem identificados de relance."""
+    m = (modelo or "").upper()
+    return any(chave in m for chave, _ in _HOD_FRANQUIA_POR_MODELO)
+
+
 def _hod_franquia_do_modelo(modelo):
     m = (modelo or "").upper()
     for chave, franquia in _HOD_FRANQUIA_POR_MODELO:
@@ -6308,6 +6314,7 @@ def api_hodometros_grid():
             "franquia":  franquia,
             "valor_km":  valor_km,
             "mensal":    mensal,
+            "byd":       _hod_e_byd(v["modelo"]),
             "celulas":   celulas,
             "total":     _hod_dinheiro(sum(c["valor"] for c in celulas.values())),
         })
