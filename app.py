@@ -6089,10 +6089,21 @@ def _hod_e_mensal(tipo_contrato):
     return any(chave in t for chave in _HOD_TIPOS_MENSAIS)
 
 
-def _hod_e_byd(modelo):
-    """Os BYD ganham cor própria na grade, para serem identificados de relance."""
+# Cor de fundo da linha por modelo, para reconhecer o veículo de relance na
+# grade. A chave vira uma classe CSS (hod-row-<chave>).
+_HOD_COR_POR_MODELO = [
+    ("DOLPHIN", "byd"),
+    ("BYD",     "byd"),
+    ("POLO",    "polo"),
+]
+
+
+def _hod_destaque_do_modelo(modelo):
     m = (modelo or "").upper()
-    return any(chave in m for chave, _ in _HOD_FRANQUIA_POR_MODELO)
+    for chave, classe in _HOD_COR_POR_MODELO:
+        if chave in m:
+            return classe
+    return None
 
 
 def _hod_franquia_do_modelo(modelo):
@@ -6314,7 +6325,7 @@ def api_hodometros_grid():
             "franquia":  franquia,
             "valor_km":  valor_km,
             "mensal":    mensal,
-            "byd":       _hod_e_byd(v["modelo"]),
+            "destaque":  _hod_destaque_do_modelo(v["modelo"]),
             "celulas":   celulas,
             "total":     _hod_dinheiro(sum(c["valor"] for c in celulas.values())),
         })
