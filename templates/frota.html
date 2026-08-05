@@ -632,9 +632,9 @@ a.fr-tab-btn { text-decoration: none; display: inline-block; line-height: normal
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
           <div class="asaas-upload-lbl">Clique ou arraste o extrato do ASAAS aqui</div>
-          <div class="asaas-upload-sub">Arquivo .xlsx — os extratos se acumulam automaticamente</div>
+          <div class="asaas-upload-sub">Arquivo .xlsx ou .ofx — os extratos se acumulam e lançamentos repetidos são ignorados</div>
         </label>
-        <input type="file" id="asaas-file-input" accept=".xlsx" style="display:none">
+        <input type="file" id="asaas-file-input" accept=".xlsx,.ofx,.qfx" style="display:none">
         <div id="asaas-load-msg" style="display:none;text-align:center;font-size:13px;color:var(--ink-3);padding:10px 0;">Processando…</div>
       </div>
 
@@ -2345,13 +2345,12 @@ document.addEventListener('click', function(e) {
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(d)
         }).then(function(r) { return r.json(); }).then(function(resp) {
-          if (resp.ok) {
-            d.id = resp.id;
-            _extratos.push(d);
-            _renderChips();
-            _dadosGlobais = _combinar(_extratos);
-            _mostrarResultado(_dadosGlobais);
+          if (!resp.ok) { alert(resp.erro || 'Não foi possível salvar o extrato.'); return; }
+          if (resp.duplicadas) {
+            alert(resp.duplicadas + ' lançamento(s) já constavam em extratos anteriores e foram ignorados.');
           }
+          /* Recarrega do servidor: o extrato salvo já vem sem duplicatas */
+          _carregarExtratos();
         });
       })
       .catch(function(e) { alert('Erro ao processar: ' + e); })

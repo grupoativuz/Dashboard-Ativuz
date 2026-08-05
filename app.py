@@ -219,16 +219,114 @@ def api_todos_telefones():
     return jsonify(resultado)
 
 
-@app.route("/api/asaas-parse", methods=["POST"])
-def api_asaas_parse():
-    import openpyxl, unicodedata
-    f = request.files.get("arquivo")
-    if not f:
-        return jsonify({"erro": "Nenhum arquivo enviado"}), 400
+def _asaas_norm(s):
+    import unicodedata
+    s = unicodedata.normalize("NFD", str(s or "").lower())
+    return "".join(c for c in s if unicodedata.category(c) != "Mn")
 
-    def _norm(s):
-        s = unicodedata.normalize("NFD", str(s or "").lower())
-        return "".join(c for c in s if unicodedata.category(c) != "Mn")
+
+# Nomes normalizados dos clientes conhecidos (motoristas)
+_ASAAS_CLIENTES_N = [
+    "jackson cassiano verissimo",
+    "adriano teotonio da silva",
+    "tanielle glauciana souza da silva",
+    "marciano ezequiel valdevino da silva",
+]
+
+# Mapeamento fatura -> motorista real (caução paga por terceiro)
+_ASAAS_PROXY_FATURA = {
+    "799563477": "JACKSON CASSIANO VERISSIMO",              # Joel pagou por Jackson
+    "803445386": "ADRIANO TEOTONIO DA SILVA",               # Andrier pagou por Adriano
+    "811925256": "MARCIANO EZEQUIEL VALDEVINO DA SILVA",    # Andrier pagou por Marciano
+}
+
+
+def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancamento=""):
+    """Classifica uma linha do extrato (xlsx ou OFX) no formato usado pelo painel."""
+    import re as _re
+
+    desc_n = _asaas_norm(desc)
+    abs_v  = abs(valor)
+
+    if estornado or desc_n.startswith("estorno"):
+        categoria = "estorno"
+    elif "cobranca recebida" in desc_n:
+        categoria = "adesao" if abs_v >= 3000 else "aluguel"
+    elif "luz divina" in desc_n:
+        categoria = "repasse_investidor"
+    elif "ativuz" in desc_n:
+        categoria = "taxa_ativuz"
+    elif "ipva" in desc_n or "seguro" in desc_n:
+        categoria = "ipva"
+    elif "taxa" in desc_n or "notificacao" in desc_n:
+        categoria = "taxa_asaas"
+    elif valor < 0 and any(c in desc_n for c in _ASAAS_CLIENTES_N):
+        categoria = "reembolso_manutencao"
+    else:
+        categoria = "outro"
+
+    # Extrai nome do motorista (cobranças)
+    motorista = ""
+    pagador   = ""
+    if categoria in ("aluguel", "adesao"):
+        mf = _re.search(r"fatura nr\.\s*(\d+)\s+(.+)$", desc, _re.IGNORECASE)
+        if mf:
+            pagador   = mf.group(2).strip()
+            motorista = _ASAAS_PROXY_FATURA.get(mf.group(1), pagador)
+
+    # Placa do seguro
+    placa_seguro = ""
+    if categoria == "seguro":
+        m = _re.search(r"BYD\s+([A-Z0-9\-]+)", desc, _re.IGNORECASE)
+        placa_seguro = m.group(1).upper().replace(" ", "") if m else ""
+
+    return {
+        "data":          data,
+        "tipo":          tipo,
+        "tx_id":         tx_id,
+        "descricao":     desc,
+        "valor":         valor,
+        "lancamento":    lancamento,
+        "categoria":     categoria,
+        "motorista":     motorista,
+        "pagador":       pagador if pagador != motorista else "",
+        "placa_seguro":  placa_seguro,
+        # Relevante = tudo exceto PIX para terceiros sem relação com a operação
+        "relevante":     categoria != "outro",
+    }
+
+
+def _asaas_totais(transacoes):
+    """Totalizadores — apenas lançamentos relevantes."""
+    def _soma(cat):
+        return sum(t["valor"] for t in transacoes if t["categoria"] == cat and t["relevante"])
+
+    # Adesão = caução (R$3.000) + 1ª semana (R$1.200)
+    _SEMANA_VALOR = 1200
+    _adesoes = [t for t in transacoes if t["categoria"] == "adesao" and t["relevante"]]
+    caucao_total  = sum(max(t["valor"] - _SEMANA_VALOR, 0) for t in _adesoes)
+    semana_adesao = len(_adesoes) * _SEMANA_VALOR
+
+    return {
+        "total_recebido":       _soma("aluguel") + _soma("adesao"),
+        "aluguel":              _soma("aluguel") + semana_adesao,
+        "caucao":               caucao_total,
+        "taxa_ativuz":          _soma("taxa_ativuz"),
+        "reembolso_manutencao": _soma("reembolso_manutencao"),
+        "ipva":                 _soma("ipva"),
+        "taxa_asaas":           _soma("taxa_asaas"),
+        "estorno":              _soma("estorno"),
+    }
+
+
+def _asaas_chave(t):
+    """Chave de deduplicação: ID da transação ASAAS, com fallback por conteúdo."""
+    return t.get("tx_id") or "{}|{}|{}".format(t.get("data"), t.get("descricao"), t.get("valor"))
+
+
+def _asaas_ler_xlsx(f):
+    """Lê o extrato oficial do ASAAS em .xlsx. Retorna (dados, erro)."""
+    import openpyxl
 
     wb = openpyxl.load_workbook(f, data_only=True)
     ws = wb.active
@@ -243,14 +341,14 @@ def api_asaas_parse():
             header_row = i
             break
     if header_row is None:
-        return jsonify({"erro": "Formato de arquivo não reconhecido — certifique-se de usar o extrato oficial do ASAAS (.xlsx)"}), 400
+        return None, "Formato de arquivo não reconhecido — certifique-se de usar o extrato oficial do ASAAS (.xlsx ou .ofx)"
 
     # Extrai período
     periodo = ""
     for r in rows[:header_row]:
         for cell in r:
             s = str(cell or "")
-            if "período" in s.lower() or "periodo" in s.lower():
+            if "periodo" in _asaas_norm(s):
                 periodo = s
                 break
 
@@ -286,111 +384,115 @@ def api_asaas_parse():
         except (TypeError, ValueError):
             continue
 
-        desc_n = _norm(desc)
-        abs_v  = abs(valor)
+        transacoes.append(_asaas_montar_transacao(data, tx_id, tipo, estorn, desc, valor, lancam))
 
-        # Nomes normalizados dos clientes conhecidos (motoristas)
-        _CLIENTES_N = [
-            "jackson cassiano verissimo",
-            "adriano teotonio da silva",
-            "tanielle glauciana souza da silva",
-            "marciano ezequiel valdevino da silva",
-        ]
+    return {
+        "periodo":       periodo,
+        "saldo_inicial": saldo_inicial,
+        "saldo_final":   saldo_final,
+        "transacoes":    transacoes,
+    }, None
 
-        # Classificação
-        if estorn:
-            categoria = "estorno"
-        elif "cobrança recebida" in desc_n or "cobranca recebida" in desc_n:
-            if abs_v >= 3000:
-                categoria = "adesao"
-            else:
-                categoria = "aluguel"
-        elif "luz divina" in desc_n:
-            categoria = "repasse_investidor"
-        elif "ativuz" in desc_n:
-            categoria = "taxa_ativuz"
-        elif "ipva" in desc_n or "seguro" in desc_n:
-            categoria = "ipva"
-        elif "taxa" in desc_n or "notificacao" in desc_n or "notificação" in desc_n:
-            categoria = "taxa_asaas"
-        elif valor < 0 and any(c in desc_n for c in _CLIENTES_N):
-            categoria = "reembolso_manutencao"
+
+def _asaas_ler_ofx(f):
+    """Lê extrato bancário no formato OFX/QFX (SGML ou XML). Retorna (dados, erro)."""
+    import re as _re
+
+    raw = f.read()
+    if isinstance(raw, bytes):
+        for enc in ("utf-8", "latin-1"):
+            try:
+                texto = raw.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
         else:
-            categoria = "outro"
+            texto = raw.decode("utf-8", "replace")
+    else:
+        texto = raw
 
-        # Mapeamento fatura → motorista real (caução paga por terceiro)
-        _PROXY_FATURA = {
-            "799563477": "JACKSON CASSIANO VERISSIMO",   # Joel pagou por Jackson
-            "803445386": "ADRIANO TEOTONIO DA SILVA",    # Andrier pagou por Adriano
-            "811925256": "MARCIANO EZEQUIEL VALDEVINO DA SILVA",  # Andrier pagou por Marciano
-        }
+    if "<STMTTRN>" not in texto.upper():
+        return None, "Arquivo OFX sem lançamentos (<STMTTRN>) — certifique-se de exportar o extrato completo"
 
-        # Extrai nome do motorista (cobranças)
-        motorista = ""
-        pagador   = ""
-        if categoria in ("aluguel", "adesao"):
-            import re as _re
-            mf = _re.search(r"fatura nr\.\s*(\d+)\s+(.+)$", desc, _re.IGNORECASE)
-            if mf:
-                fatura_nr = mf.group(1)
-                pagador   = mf.group(2).strip()
-                motorista = _PROXY_FATURA.get(fatura_nr, pagador)
-            else:
-                pagador   = ""
-                motorista = ""
+    def _tag(bloco, nome):
+        """Valor de uma tag OFX, tolerando SGML (sem fechamento) e XML."""
+        m = _re.search(r"<%s>\s*(.*?)\s*(?:</%s>|<|$)" % (nome, nome), bloco, _re.IGNORECASE | _re.DOTALL)
+        return m.group(1).strip() if m else ""
 
-        # Placa do seguro
-        placa_seguro = ""
-        if categoria == "seguro":
-            import re as _re
-            m = _re.search(r"BYD\s+([A-Z0-9\-]+)", desc, _re.IGNORECASE)
-            placa_seguro = m.group(1).upper().replace(" ", "") if m else ""
+    def _data_br(v):
+        """'20260605120000[-3:BRT]' -> '05/06/2026'"""
+        d = _re.sub(r"\D", "", v or "")[:8]
+        return "%s/%s/%s" % (d[6:8], d[4:6], d[0:4]) if len(d) == 8 else ""
 
-        # Relevante = tudo exceto PIX para terceiros sem relação com a operação
-        relevante = categoria != "outro"
+    transacoes = []
+    for bloco in _re.findall(r"<STMTTRN>(.*?)</STMTTRN>", texto, _re.IGNORECASE | _re.DOTALL):
+        data = _data_br(_tag(bloco, "DTPOSTED"))
+        try:
+            valor = float(_tag(bloco, "TRNAMT").replace(",", "."))
+        except ValueError:
+            continue
+        memo = _tag(bloco, "MEMO")
+        nome = _tag(bloco, "NAME")
+        desc = memo if len(memo) >= len(nome) else nome
+        if not data or not desc:
+            continue
+        transacoes.append(_asaas_montar_transacao(
+            data, _tag(bloco, "FITID"), _tag(bloco, "TRNTYPE"), "", desc, valor))
 
-        transacoes.append({
-            "data":          data,
-            "tipo":          tipo,
-            "tx_id":         tx_id,
-            "descricao":     desc,
-            "valor":         valor,
-            "lancamento":    lancam,
-            "categoria":     categoria,
-            "motorista":     motorista,
-            "pagador":       pagador if pagador != motorista else "",
-            "placa_seguro":  placa_seguro,
-            "relevante":     relevante,
-        })
+    if not transacoes:
+        return None, "Nenhum lançamento válido encontrado no arquivo OFX"
 
-    # Totalizadores — apenas lançamentos relevantes
-    def _soma(cat):
-        return sum(t["valor"] for t in transacoes if t["categoria"] == cat and t["relevante"])
+    dt_ini = _data_br(_tag(texto, "DTSTART"))
+    dt_fim = _data_br(_tag(texto, "DTEND"))
+    periodo = ""
+    if dt_ini and dt_fim:
+        periodo = "Período a partir de %s até %s" % (dt_ini, dt_fim)
 
-    # Adesão = caução (R$3.000) + 1ª semana (R$1.200)
-    _SEMANA_VALOR = 1200
-    _adesoes = [t for t in transacoes if t["categoria"] == "adesao" and t["relevante"]]
-    caucao_total  = sum(max(t["valor"] - _SEMANA_VALOR, 0) for t in _adesoes)
-    semana_adesao = len(_adesoes) * _SEMANA_VALOR
+    saldo_final = None
+    m_bal = _re.search(r"<LEDGERBAL>(.*?)(?:</LEDGERBAL>|$)", texto, _re.IGNORECASE | _re.DOTALL)
+    if m_bal:
+        try:
+            saldo_final = float(_tag(m_bal.group(1), "BALAMT").replace(",", "."))
+        except ValueError:
+            pass
 
-    totais = {
-        "total_recebido":       _soma("aluguel") + _soma("adesao"),
-        "aluguel":              _soma("aluguel") + semana_adesao,
-        "caucao":               caucao_total,
-        "taxa_ativuz":          _soma("taxa_ativuz"),
-        "reembolso_manutencao": _soma("reembolso_manutencao"),
-        "ipva":                 _soma("ipva"),
-        "taxa_asaas":           _soma("taxa_asaas"),
-        "estorno":              _soma("estorno"),
-    }
+    return {
+        "periodo":       periodo,
+        "saldo_inicial": 0,
+        "saldo_final":   saldo_final,
+        "transacoes":    transacoes,
+    }, None
 
-    return jsonify({
-        "periodo":        periodo,
-        "saldo_inicial":  saldo_inicial,
-        "saldo_final":    saldo_final,
-        "totais":         totais,
-        "transacoes":     transacoes,
-    })
+
+@app.route("/api/asaas-parse", methods=["POST"])
+def api_asaas_parse():
+    f = request.files.get("arquivo")
+    if not f:
+        return jsonify({"erro": "Nenhum arquivo enviado"}), 400
+
+    nome = (f.filename or "").lower()
+    if nome.endswith((".ofx", ".qfx")):
+        dados, erro = _asaas_ler_ofx(f)
+    elif nome.endswith((".xlsx", ".xlsm")):
+        dados, erro = _asaas_ler_xlsx(f)
+    else:
+        return jsonify({"erro": "Formato não suportado — envie o extrato em .xlsx ou .ofx"}), 400
+
+    if erro:
+        return jsonify({"erro": erro}), 400
+
+    # Deduplica dentro do próprio arquivo
+    vistas, unicas = set(), []
+    for t in dados["transacoes"]:
+        k = _asaas_chave(t)
+        if k in vistas:
+            continue
+        vistas.add(k)
+        unicas.append(t)
+    dados["transacoes"] = unicas
+    dados["totais"] = _asaas_totais(unicas)
+
+    return jsonify(dados)
 
 
 @app.route("/api/asaas-salvar", methods=["POST"])
@@ -399,15 +501,40 @@ def api_asaas_salvar():
     if not dados:
         return jsonify({"erro": "Sem dados"}), 400
     sb = _supabase()
+
+    # Remove lançamentos já presentes em extratos salvos (períodos sobrepostos)
+    transacoes = dados.get("transacoes", [])
+    ja_salvas = set()
+    try:
+        antigos = sb.table("asaas_extratos").select("transacoes").execute()
+        for row in (antigos.data or []):
+            for t in (row.get("transacoes") or []):
+                ja_salvas.add(_asaas_chave(t))
+    except Exception:
+        pass
+
+    novas, vistas = [], set()
+    for t in transacoes:
+        k = _asaas_chave(t)
+        if k in ja_salvas or k in vistas:
+            continue
+        vistas.add(k)
+        novas.append(t)
+    duplicadas = len(transacoes) - len(novas)
+
+    if not novas:
+        return jsonify({"ok": False, "duplicadas": duplicadas,
+                        "erro": "Todos os %d lançamentos deste arquivo já constam em extratos salvos." % duplicadas}), 409
+
     res = sb.table("asaas_extratos").insert({
         "periodo":       dados.get("periodo", ""),
         "saldo_inicial": dados.get("saldo_inicial"),
         "saldo_final":   dados.get("saldo_final"),
-        "totais":        dados.get("totais", {}),
-        "transacoes":    dados.get("transacoes", []),
+        "totais":        _asaas_totais(novas),
+        "transacoes":    novas,
     }).execute()
     row = (res.data or [{}])[0]
-    return jsonify({"ok": True, "id": row.get("id")})
+    return jsonify({"ok": True, "id": row.get("id"), "duplicadas": duplicadas})
 
 
 @app.route("/api/asaas-extratos")
