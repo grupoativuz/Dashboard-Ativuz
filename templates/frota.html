@@ -2312,6 +2312,12 @@ document.addEventListener('click', function(e) {
            ('0' + dt.getDate()).slice(-2);
   }
 
+  /* Motoristas sem contrato ativo — marcados como (desativado) nas tabelas */
+  var _MOTORISTAS_INATIVOS = ['ADRIANO TEOTONIO DA SILVA'];
+  function _inativo(nome) {
+    return _MOTORISTAS_INATIVOS.indexOf((nome || '').toUpperCase()) >= 0;
+  }
+
   function _renderMotoristas(transacoes) {
     var SEMANA = 1200;
     var map = {};
@@ -2332,7 +2338,10 @@ document.addEventListener('click', function(e) {
       var m = map[nome];
       var total = m.aluguel + m.caucao;
       var nSem  = Object.keys(m.semanas).length;
-      return '<tr><td>' + nome.toUpperCase() + '</td>' +
+      var tag = _inativo(nome)
+        ? ' <span style="font-size:10.5px;font-weight:600;color:var(--ink-3);">(desativado)</span>'
+        : '';
+      return '<tr><td>' + nome.toUpperCase() + tag + '</td>' +
         '<td>' + (nSem > 0 ? nSem + ' sem.' : '—') + '</td>' +
         '<td class="pos">' + (m.aluguel ? _brl(m.aluguel) : '—') + '</td>' +
         '<td class="pos">' + (m.caucao   ? _brl(m.caucao)  : '—') + '</td>' +
@@ -2459,7 +2468,8 @@ document.addEventListener('click', function(e) {
       var total   = aluguel + caucao;
       var nSem = Object.keys(m.semanas).length;
       totAluguel += aluguel; totCaucao += caucao; totSemanas += nSem;
-      return '<tr><td>' + nome.toUpperCase() + '</td><td style="text-align:center">' + (nSem||'—') + '</td>' +
+      var tagPdf = _inativo(nome) ? ' <span style="font-size:9px;color:#64748b;">(desativado)</span>' : '';
+      return '<tr><td>' + nome.toUpperCase() + tagPdf + '</td><td style="text-align:center">' + (nSem||'—') + '</td>' +
         '<td style="text-align:right;color:#15803d">' + (aluguel ? brl(aluguel) : '—') + '</td>' +
         '<td style="text-align:right;color:#1d4ed8">' + (caucao  ? brl(caucao)  : '—') + '</td>' +
         '<td style="text-align:right;font-weight:700">' + brl(total) + '</td></tr>';
