@@ -2210,6 +2210,9 @@ document.addEventListener('click', function(e) {
         if (lista.length) {
           _dadosGlobais = _combinar(lista);
           _mostrarResultado(_dadosGlobais);
+        } else {
+          _dadosGlobais = null;
+          _esconderResultado();
         }
       });
   }
@@ -2239,9 +2242,19 @@ document.addEventListener('click', function(e) {
         _renderChips();
         _dadosGlobais = _extratos.length ? _combinar(_extratos) : null;
         if (_dadosGlobais) _mostrarResultado(_dadosGlobais);
-        else { document.getElementById('asaas-resultado').style.display = 'none'; }
+        else _esconderResultado();
       });
   };
+
+  /* Sem extratos: volta ao estado inicial (área de upload visível) */
+  function _esconderResultado() {
+    var res = document.getElementById('asaas-resultado');
+    if (res) res.style.display = 'none';
+    var uploadWrap = document.getElementById('asaas-upload-wrap');
+    if (uploadWrap) uploadWrap.style.display = '';
+    window._asaasDados = null;
+    if (window.renderExecSummary) renderExecSummary();
+  }
 
   function _mostrarResultado(d) {
     // Esconde upload inicial, mostra resultado
