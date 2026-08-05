@@ -1612,6 +1612,17 @@ def historico_contratos():
                 "veiculo_modelo, contrato_inicio, valor_semanal, arquivo_path, criado_em"
             ).neq("deletado", True).order("criado_em", desc=True).execute()
             contratos = res.data or []
+
+            # contrato_inicio é texto "dd/mm/aaaa": ordena do mais recente para o
+            # mais antigo em Python; sem data vai para o fim (mantém criado_em desc)
+            def _ini_key(c):
+                try:
+                    d, m, y = str(c.get("contrato_inicio") or "").split("/")
+                    return (1, date(int(y), int(m), int(d)))
+                except (ValueError, TypeError):
+                    return (0, date.min)
+            # sort estável: empates de data mantêm a ordem criado_em desc
+            contratos.sort(key=_ini_key, reverse=True)
         except Exception as e:
             erro = str(e)
     else:
