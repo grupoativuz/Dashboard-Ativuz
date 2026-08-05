@@ -238,6 +238,12 @@ _ASAAS_PROXY_FATURA = {
     "799563477": "JACKSON CASSIANO VERISSIMO",              # Joel pagou por Jackson
     "803445386": "ADRIANO TEOTONIO DA SILVA",               # Andrier pagou por Adriano
     "811925256": "MARCIANO EZEQUIEL VALDEVINO DA SILVA",    # Andrier pagou por Marciano
+    "875101330": "JACKSON CASSIANO VERISSIMO",              # Polliana pagou por Jackson
+}
+
+# Cobranças recebidas e depois devolvidas ao pagador — não entram em nenhum total
+_ASAAS_FATURAS_DEVOLVIDAS = {
+    "865166300": "Adesão Alison Ferreira Spindola devolvida via Pix em 24/07/2026",
 }
 
 
@@ -248,7 +254,13 @@ def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancament
     desc_n = _asaas_norm(desc)
     abs_v  = abs(valor)
 
-    if estornado or desc_n.startswith("estorno"):
+    # Nº da fatura, quando houver ("... fatura nr. 123456 NOME")
+    m_fat    = _re.search(r"fatura nr\.\s*(\d+)", desc, _re.IGNORECASE)
+    fatura   = m_fat.group(1) if m_fat else ""
+
+    if fatura in _ASAAS_FATURAS_DEVOLVIDAS:
+        categoria = "devolvido"
+    elif estornado or desc_n.startswith("estorno"):
         categoria = "estorno"
     elif "cobranca recebida" in desc_n:
         categoria = "adesao" if abs_v >= 3000 else "aluguel"
@@ -292,7 +304,8 @@ def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancament
         "pagador":       pagador if pagador != motorista else "",
         "placa_seguro":  placa_seguro,
         # Relevante = tudo exceto PIX para terceiros sem relação com a operação
-        "relevante":     categoria != "outro",
+        # e cobranças devolvidas ao pagador
+        "relevante":     categoria not in ("outro", "devolvido"),
     }
 
 
