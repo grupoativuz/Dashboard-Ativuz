@@ -169,6 +169,59 @@ a.fr-tab-btn { text-decoration: none; display: inline-block; line-height: normal
   border-bottom-color: var(--brand-orange, #FF4713);
 }
 
+/* ── Modal Gerar PDF ── */
+.pdfm-overlay {
+  display:none; position:fixed; inset:0; z-index:9999;
+  align-items:center; justify-content:center; padding:20px;
+  background:rgba(15,19,32,.55); backdrop-filter:blur(2px);
+}
+.pdfm-card {
+  background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  width:420px; max-width:100%; max-height:86vh; overflow:hidden;
+  display:flex; flex-direction:column;
+  box-shadow:0 20px 60px rgba(15,19,32,.28);
+}
+.pdfm-head {
+  display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+  padding:18px 20px 14px; border-bottom:1px solid var(--line);
+}
+.pdfm-title { font-size:15px; font-weight:800; color:var(--ink); letter-spacing:-.01em; }
+.pdfm-sub   { font-size:12px; color:var(--ink-3); margin-top:2px; }
+.pdfm-x {
+  background:none; border:none; cursor:pointer; color:var(--ink-4);
+  padding:4px; border-radius:6px; display:flex; line-height:0;
+  transition:background .12s, color .12s;
+}
+.pdfm-x:hover { background:var(--line-2); color:var(--ink-2); }
+.pdfm-body { padding:16px 20px 20px; overflow-y:auto; }
+.pdfm-lbl {
+  font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--ink-4); margin-bottom:8px;
+}
+.pdfm-week { display:flex; gap:8px; margin-bottom:20px; }
+.pdfm-btn {
+  flex:1; padding:11px 10px; border-radius:9px; cursor:pointer;
+  font-family:inherit; font-size:12.5px; font-weight:700;
+  background:var(--surface); color:var(--ink-2); border:1px solid var(--line);
+  transition:background .12s, border-color .12s, color .12s;
+}
+.pdfm-btn:hover { background:var(--line-2); color:var(--ink); }
+.pdfm-btn.primary {
+  background:var(--brand-orange, #FF4713); border-color:var(--brand-orange, #FF4713); color:#fff;
+}
+.pdfm-btn.primary:hover { filter:brightness(.94); color:#fff; }
+.pdfm-hist { display:flex; flex-direction:column; gap:6px; max-height:210px; overflow-y:auto; }
+.pdfm-item {
+  display:flex; align-items:center; gap:9px; width:100%; text-align:left;
+  padding:10px 12px; border-radius:9px; cursor:pointer; font-family:inherit;
+  font-size:12.5px; color:var(--ink-2);
+  background:var(--surface-2); border:1px solid var(--line);
+  transition:background .12s, border-color .12s, color .12s;
+}
+.pdfm-item:hover { background:var(--line-2); border-color:var(--ink-4); color:var(--ink); }
+.pdfm-item svg { flex:none; color:var(--ink-4); }
+.pdfm-vazio { font-size:12px; color:var(--ink-3); }
+
 /* ── Sob Administração ── */
 .adm-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
 @media (max-width:900px){ .adm-kpis { grid-template-columns:repeat(2,1fr); } }
@@ -326,7 +379,7 @@ a.fr-tab-btn { text-decoration: none; display: inline-block; line-height: normal
 #modal-rent-real .modal-total span { font-size:12px; color:rgba(255,255,255,.7); }
 #modal-rent-real .modal-total strong { font-size:18px; font-weight:800; color:#fff; }
 .inv-exec-metric-lbl { font-size:10.5px; color:var(--ink-3); font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px; }
-.inv-exec-metric-val { font-size:18px; font-weight:800; color:var(--ink-1); }
+.inv-exec-metric-val { font-size:18px; font-weight:800; color:var(--ink); }
 .inv-exec-metric-sub { font-size:10.5px; color:var(--ink-3); margin-top:2px; }
 .inv-exec-metric[data-tooltip]::after {
   content: attr(data-tooltip);
@@ -338,8 +391,8 @@ a.fr-tab-btn { text-decoration: none; display: inline-block; line-height: normal
 }
 .inv-exec-metric[data-tooltip]:hover::after { opacity:1; }
 .inv-section { font-size:13px; font-weight:700; color:var(--ink-2); text-transform:uppercase; letter-spacing:.06em; margin:28px 0 10px; border-left:3px solid #6366f1; padding-left:8px; }
-.inv-bloco { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin-bottom:18px; overflow:visible; }
-.inv-bloco-title { font-size:13px; font-weight:700; color:var(--ink-1); margin-bottom:14px; }
+.inv-bloco { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin-bottom:18px; overflow:visible; }
+.inv-bloco-title { font-size:13px; font-weight:700; color:var(--ink); margin-bottom:14px; }
 .inv-cards { display:grid; grid-template-columns:1fr; gap:14px; }
 @media(max-width:600px){ .inv-cards { grid-template-columns:1fr; } }
 .inv-card { border:1px solid var(--line); border-radius:10px; padding:16px; background:var(--bg); }
@@ -349,7 +402,7 @@ a.fr-tab-btn { text-decoration: none; display: inline-block; line-height: normal
 .inv-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid var(--line); font-size:12.5px; }
 .inv-row:last-child { border-bottom:none; }
 .inv-row-lbl { color:var(--ink-3); }
-.inv-row-val { font-weight:600; color:var(--ink-1); }
+.inv-row-val { font-weight:600; color:var(--ink); }
 .inv-row-val.green  { color:#22a06b; }
 .inv-row-val.purple { color:#6366f1; }
 .inv-row-val.red    { color:#ef4444; }
@@ -357,14 +410,14 @@ a.fr-tab-btn { text-decoration: none; display: inline-block; line-height: normal
 .inv-out-card:hover { box-shadow:0 4px 18px rgba(0,0,0,.12); border-color:var(--accent,#6366f1); }
 .inv-out-card[data-tip]:hover::after { content:attr(data-tip); position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%); background:rgba(18,18,30,.96); color:#e8e8f2; padding:9px 13px; border-radius:9px; font-size:12px; line-height:1.55; max-width:230px; width:max-content; z-index:300; box-shadow:0 6px 20px rgba(0,0,0,.35); pointer-events:none; white-space:normal; font-weight:400; }
 .inv-out-lbl { font-size:11px; color:var(--ink-3); margin-bottom:2px; }
-.inv-out-val { font-size:15px; font-weight:700; color:var(--ink-1); }
+.inv-out-val { font-size:15px; font-weight:700; color:var(--ink); }
 .inv-out-val.green  { color:#22a06b; }
 .inv-out-val.purple { color:#6366f1; }
 .inv-out-val.orange { color:#f59e0b; }
 .inv-chart-wrap { position:relative; height:260px; margin-top:8px; }
 .inv-perf-table { width:100%; border-collapse:collapse; font-size:12.5px; }
 .inv-perf-table th { padding:8px 10px; text-align:left; font-size:11px; font-weight:700; color:var(--ink-3); text-transform:uppercase; letter-spacing:.04em; border-bottom:2px solid var(--line); }
-.inv-perf-table td { padding:8px 10px; border-bottom:1px solid var(--line); color:var(--ink-1); }
+.inv-perf-table td { padding:8px 10px; border-bottom:1px solid var(--line); color:var(--ink); }
 .inv-perf-table tr:last-child td { border-bottom:none; }
 .inv-badge { display:inline-block; padding:2px 7px; border-radius:20px; font-size:11px; font-weight:700; }
 .inv-badge.green  { background:#f0fdf4; color:#15803d; }
@@ -391,20 +444,20 @@ a.fr-tab-btn { text-decoration: none; display: inline-block; line-height: normal
   border-radius: 10px;
   padding: 13px 15px;
   border: 1px solid var(--line);
-  background: var(--card);
+  background: var(--surface);
 }
 .asaas-card.entrada { border-left: 3px solid #22c55e; }
 .asaas-card.saida   { border-left: 3px solid #f97316; }
 .asaas-card.neutro  { border-left: 3px solid #94a3b8; }
 .asaas-card-lbl { font-size: 10.5px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 5px; }
-.asaas-card-val { font-size: 18px; font-weight: 800; color: var(--ink-1); }
+.asaas-card-val { font-size: 18px; font-weight: 800; color: var(--ink); }
 .asaas-card-val.pos { color: #15803d; }
 .asaas-card-val.neg { color: #dc2626; }
 .asaas-card-sub { font-size: 10.5px; color: var(--ink-3); margin-top: 2px; }
 .asaas-periodo { font-size: 11.5px; color: var(--ink-3); margin-bottom: 14px; }
 .asaas-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .asaas-table th { padding: 7px 10px; text-align: left; font-size: 11px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; border-bottom: 2px solid var(--line); white-space: nowrap; }
-.asaas-table td { padding: 7px 10px; border-bottom: 1px solid var(--line); color: var(--ink-1); }
+.asaas-table td { padding: 7px 10px; border-bottom: 1px solid var(--line); color: var(--ink); }
 .asaas-table tr:last-child td { border-bottom: none; }
 .asaas-table td.pos { color: #15803d; font-weight: 600; }
 .asaas-table td.neg { color: #dc2626; font-weight: 600; }
@@ -2225,7 +2278,7 @@ document.addEventListener('click', function(e) {
     if (wrap) wrap.style.display = '';
     chips.innerHTML = _extratos.map(function(e) {
       var per = (e.periodo || e.id).replace(/Período a partir de /i,'').replace(/\s*até\s*/i,' → ');
-      return '<div style="display:inline-flex;align-items:center;gap:6px;background:var(--card);' +
+      return '<div style="display:inline-flex;align-items:center;gap:6px;background:var(--surface);' +
              'border:1px solid var(--line);border-radius:20px;padding:4px 10px 4px 12px;font-size:11.5px;">' +
              '<span>' + per + '</span>' +
              '<button onclick="asaasExcluir(\'' + e.id + '\')" title="Remover" ' +
@@ -2421,13 +2474,14 @@ document.addEventListener('click', function(e) {
     if (_extratos.length) {
       lista.innerHTML = _extratos.slice().reverse().map(function(e, i) {
         var per = (e.periodo || ('Extrato ' + (i+1))).replace(/Período a partir de /i,'').replace(/\s*até\s*/i,' → ');
-        return '<button onclick="asaasGerarPdfExtrato(\'' + e.id + '\')" ' +
-          'style="text-align:left;padding:10px 14px;background:var(--surface);border:1px solid var(--line);' +
-          'border-radius:8px;cursor:pointer;font-size:12.5px;color:var(--ink-1);font-family:inherit;width:100%;">' +
-          '<span style="font-weight:700;">📄 </span>' + per + '</button>';
+        return '<button class="pdfm-item" onclick="asaasGerarPdfExtrato(\'' + e.id + '\')">' +
+          '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">' +
+          '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>' +
+          '<polyline points="14 2 14 8 20 8"/></svg>' +
+          '<span>' + per + '</span></button>';
       }).join('');
     } else {
-      lista.innerHTML = '<span style="font-size:12px;color:var(--ink-3);">Nenhum extrato salvo ainda.</span>';
+      lista.innerHTML = '<span class="pdfm-vazio">Nenhum extrato salvo ainda.</span>';
     }
     var modal = document.getElementById('asaas-pdf-modal');
     modal.style.display = 'flex';
@@ -2619,20 +2673,31 @@ document.addEventListener('click', function(e) {
 </script>
 
 <!-- Modal seleção de semana para PDF -->
-<div id="asaas-pdf-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:var(--card);border-radius:16px;padding:28px 28px 22px;width:400px;max-width:92vw;box-shadow:0 12px 40px rgba(0,0,0,.25);">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-      <span style="font-size:15px;font-weight:800;color:var(--ink-1);">Gerar PDF — Prestação de Contas</span>
-      <button onclick="asaasFecharModalPdf()" style="background:none;border:none;cursor:pointer;color:var(--ink-3);font-size:18px;line-height:1;padding:0;">✕</button>
+<div id="asaas-pdf-modal" class="pdfm-overlay" onclick="if(event.target===this)asaasFecharModalPdf()">
+  <div class="pdfm-card" role="dialog" aria-modal="true" aria-labelledby="pdfm-title">
+    <div class="pdfm-head">
+      <div>
+        <div id="pdfm-title" class="pdfm-title">Gerar PDF</div>
+        <div class="pdfm-sub">Prestação de contas ao investidor</div>
+      </div>
+      <button class="pdfm-x" onclick="asaasFecharModalPdf()" aria-label="Fechar">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
     </div>
-    <p style="font-size:12.5px;color:var(--ink-2);margin:0 0 14px;">Escolha o período para o relatório:</p>
-    <div style="display:flex;gap:10px;margin-bottom:20px;">
-      <button onclick="asaasGerarPdf(null,0)" style="flex:1;padding:12px 8px;background:#1e3a5f;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Semana atual</button>
-      <button onclick="asaasGerarPdf(null,-1)" style="flex:1;padding:12px 8px;background:#334155;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Semana anterior</button>
-    </div>
-    <div id="asaas-pdf-hist-wrap">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);margin-bottom:10px;">Histórico de extratos salvos</div>
-      <div id="asaas-pdf-hist-list" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;"></div>
+
+    <div class="pdfm-body">
+      <div class="pdfm-lbl">Relatório semanal</div>
+      <div class="pdfm-week">
+        <button class="pdfm-btn primary" onclick="asaasGerarPdf(null,0)">Semana atual</button>
+        <button class="pdfm-btn" onclick="asaasGerarPdf(null,-1)">Semana anterior</button>
+      </div>
+
+      <div id="asaas-pdf-hist-wrap">
+        <div class="pdfm-lbl">Extratos salvos</div>
+        <div id="asaas-pdf-hist-list" class="pdfm-hist"></div>
+      </div>
     </div>
   </div>
 </div>
