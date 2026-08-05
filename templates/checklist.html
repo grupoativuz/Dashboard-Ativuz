@@ -564,6 +564,7 @@
     color: var(--text-muted); border-bottom: 2px solid transparent;
     margin-bottom: -2px; transition: color .12s, border-color .12s;
   }
+  a.ck-tab { text-decoration: none; display: inline-block; line-height: normal; }
   .ck-tab:hover { color: var(--text); }
   .ck-tab.on    { color: var(--primary); border-bottom-color: var(--primary); }
 
@@ -714,8 +715,8 @@
 
 <!-- Page header -->
 <div class="page-header" style="margin-bottom:20px;">
-  <h1 class="page-title">Checklist de Contratos</h1>
-  <p class="page-sub">Gerencie os itens de documentação de cada veículo locado</p>
+  <h1 class="page-title">FROTA</h1>
+  <p class="page-sub">Gerencie os itens de documentação e hodômetros de cada veículo locado</p>
 </div>
 
 {% if erro_leitura %}
@@ -732,6 +733,8 @@
 
 <!-- Abas -->
 <div class="ck-tabs">
+  <a class="ck-tab" href="{{ url_for('pagina_frota') }}">Frota Própria Ativa</a>
+  <a class="ck-tab" href="{{ url_for('pagina_frota') }}?tab=investidores">Investidores</a>
   <button class="ck-tab on" id="tab-btn-contratos" onclick="ckSwitch('contratos')">Documentação</button>
   <button class="ck-tab"     id="tab-btn-hodometro" onclick="ckSwitch('hodometro')">Hodômetros</button>
 </div>
@@ -1550,6 +1553,10 @@ var _badgeData = {{ badge_data | tojson }};
     document.getElementById('tab-btn-hodometro').classList.toggle('on', ehHod);
     if (ehHod && !_carregado) { _carregado = true; carregar(); }
   };
+
+  if (new URLSearchParams(window.location.search).get('tab') === 'hodometro') {
+    window.ckSwitch('hodometro');
+  }
 
   /* ── Bloco dentro do modal do contrato ── */
   window.hodCarregarNoModal = function (placa) {

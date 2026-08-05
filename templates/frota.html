@@ -162,6 +162,7 @@
   transition: color .15s, border-color .15s;
   border-radius: 0;
 }
+a.fr-tab-btn { text-decoration: none; display: inline-block; line-height: normal; }
 .fr-tab-btn:hover { color: var(--ink); }
 .fr-tab-btn.active {
   color: var(--brand-orange, #FF4713);
@@ -434,8 +435,9 @@
   <!-- Sub-abas -->
   <div class="fr-tabs">
     <button class="fr-tab-btn active" id="tab-btn-propria" onclick="frTabSwitch('propria')">Frota Própria Ativa</button>
-    <button class="fr-tab-btn" id="tab-btn-adm" onclick="frTabSwitch('adm')">Sob Administração</button>
     <button class="fr-tab-btn" id="tab-btn-inv" onclick="frTabSwitch('investidores')">Investidores</button>
+    <a class="fr-tab-btn" href="{{ url_for('pagina_checklist') }}?tab=contratos">Documentação</a>
+    <a class="fr-tab-btn" href="{{ url_for('pagina_checklist') }}?tab=hodometro">Hodômetros</a>
   </div>
 
   <!-- ══ ABA: FROTA PRÓPRIA ATIVA ══ -->
@@ -756,11 +758,14 @@ function frTabSwitch(tab) {
   document.getElementById('tab-adm').style.display          = tab === 'adm'          ? '' : 'none';
   document.getElementById('tab-investidores').style.display = tab === 'investidores' ? '' : 'none';
   document.getElementById('tab-btn-propria').classList.toggle('active', tab === 'propria');
-  document.getElementById('tab-btn-adm').classList.toggle('active', tab === 'adm');
   document.getElementById('tab-btn-inv').classList.toggle('active', tab === 'investidores');
   if (tab === 'adm' || tab === 'investidores') admCarregar();
   if (tab === 'investidores') { setTimeout(function(){ if (window.invRenderAll) invRenderAll(); }, 0); }
 }
+document.addEventListener('DOMContentLoaded', function () {
+  var t = new URLSearchParams(window.location.search).get('tab');
+  if (t === 'investidores') frTabSwitch('investidores');
+});
 </script>
 <script>
 /* ══ SOB ADMINISTRAÇÃO — controle de recebimentos ══ */

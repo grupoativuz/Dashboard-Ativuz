@@ -5907,7 +5907,7 @@ def pagina_checklist():
             pass
 
     return render_template("checklist.html",
-                           active="checklist",
+                           active="frota",
                            veiculos=veiculos,
                            badge_data=badge_data,
                            erro_leitura=erro_leitura)
