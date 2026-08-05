@@ -2299,24 +2299,41 @@ document.addEventListener('click', function(e) {
     document.getElementById('asaas-saldo-row').innerHTML = html;
   }
 
+  /* Segunda-feira da semana de cobrança ("18/06/2026" → "2026-06-15"),
+     independente do dia em que o motorista efetivamente pagou */
+  function _segundaDaSemana(dataBr) {
+    var p = (dataBr || '').split('/');
+    if (p.length !== 3) return '';
+    var dt = new Date(+p[2], +p[1] - 1, +p[0]);
+    if (isNaN(dt)) return '';
+    dt.setDate(dt.getDate() - ((dt.getDay() + 6) % 7));   // 0=dom → recua até segunda
+    return dt.getFullYear() + '-' +
+           ('0' + (dt.getMonth() + 1)).slice(-2) + '-' +
+           ('0' + dt.getDate()).slice(-2);
+  }
+
   function _renderMotoristas(transacoes) {
     var SEMANA = 1200;
     var map = {};
     transacoes.forEach(function(t) {
       if (t.categoria !== 'aluguel' && t.categoria !== 'adesao') return;
       var nome = t.motorista || 'Desconhecido';
-      if (!map[nome]) map[nome] = { aluguel: 0, caucao: 0, n: 0 };
-      if (t.categoria === 'aluguel') { map[nome].aluguel += t.valor; map[nome].n++; }
+      if (!map[nome]) map[nome] = { aluguel: 0, caucao: 0, semanas: {} };
+      if (t.categoria === 'aluguel') { map[nome].aluguel += t.valor; }
       if (t.categoria === 'adesao')  {
         map[nome].aluguel += SEMANA;                          // 1ª semana conta como aluguel
         map[nome].caucao  += Math.max(t.valor - SEMANA, 0);  // restante é caução
       }
+      /* Semanas = segundas distintas com recebimento (adesão inclusa) */
+      var seg = _segundaDaSemana(t.data);
+      if (seg) map[nome].semanas[seg] = true;
     });
     var rows = Object.keys(map).sort().map(function(nome) {
       var m = map[nome];
       var total = m.aluguel + m.caucao;
+      var nSem  = Object.keys(m.semanas).length;
       return '<tr><td>' + nome.toUpperCase() + '</td>' +
-        '<td>' + (m.n > 0 ? m.n + ' sem.' : '—') + '</td>' +
+        '<td>' + (nSem > 0 ? nSem + ' sem.' : '—') + '</td>' +
         '<td class="pos">' + (m.aluguel ? _brl(m.aluguel) : '—') + '</td>' +
         '<td class="pos">' + (m.caucao   ? _brl(m.caucao)  : '—') + '</td>' +
         '<td class="pos" style="font-weight:800">' + _brl(total) + '</td></tr>';
@@ -2427,9 +2444,11 @@ document.addEventListener('click', function(e) {
     d.transacoes.forEach(function(t) {
       if (t.categoria !== 'aluguel' && t.categoria !== 'adesao') return;
       var nome = t.motorista || 'Desconhecido';
-      if (!motorMap[nome]) motorMap[nome] = {aluguel:0, adesao:0, n:0};
-      if (t.categoria === 'aluguel') { motorMap[nome].aluguel += t.valor; motorMap[nome].n++; }
+      if (!motorMap[nome]) motorMap[nome] = {aluguel:0, adesao:0, semanas:{}};
+      if (t.categoria === 'aluguel') { motorMap[nome].aluguel += t.valor; }
       if (t.categoria === 'adesao')  motorMap[nome].adesao  += t.valor;
+      var seg = _segundaDaSemana(t.data);
+      if (seg) motorMap[nome].semanas[seg] = true;
     });
     var SEMANA_V = 1200;
     var totAluguel = 0, totCaucao = 0, totSemanas = 0;
@@ -2438,8 +2457,9 @@ document.addEventListener('click', function(e) {
       var aluguel = m.aluguel + (m.adesao > 0 ? SEMANA_V : 0);
       var caucao  = m.adesao > 0 ? Math.max(m.adesao - SEMANA_V, 0) : 0;
       var total   = aluguel + caucao;
-      totAluguel += aluguel; totCaucao += caucao; totSemanas += (m.n||0);
-      return '<tr><td>' + nome.toUpperCase() + '</td><td style="text-align:center">' + (m.n||'—') + '</td>' +
+      var nSem = Object.keys(m.semanas).length;
+      totAluguel += aluguel; totCaucao += caucao; totSemanas += nSem;
+      return '<tr><td>' + nome.toUpperCase() + '</td><td style="text-align:center">' + (nSem||'—') + '</td>' +
         '<td style="text-align:right;color:#15803d">' + (aluguel ? brl(aluguel) : '—') + '</td>' +
         '<td style="text-align:right;color:#1d4ed8">' + (caucao  ? brl(caucao)  : '—') + '</td>' +
         '<td style="text-align:right;font-weight:700">' + brl(total) + '</td></tr>';
