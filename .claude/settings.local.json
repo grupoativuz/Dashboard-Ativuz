@@ -178,7 +178,8 @@
       "Bash(awk 'NR==5{print}')",
       "WebFetch(domain:www.githubstatus.com)",
       "Bash(awk 'NR>=2130 && NR<=2600 && \\(/^\\\\\\(function|^\\\\}\\\\\\)\\\\\\(\\\\\\);|^<\\\\/script>|^<script/\\)' templates/frota.html)",
-      "Bash(awk -F: '$1>2100 && $1<2650')"
+      "Bash(awk -F: '$1>2100 && $1<2650')",
+      "Bash(xargs -I{} du -k \"{}\")"
     ]
   }
 }
