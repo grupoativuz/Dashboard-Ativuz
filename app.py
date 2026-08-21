@@ -4554,8 +4554,20 @@ def _calcular_indicadores_ativuz():
     }
 
 
+# DRE temporariamente oculto (até segunda ordem).
+# Para reativar: defina DRE_HABILITADO=1 no ambiente.
+DRE_HABILITADO = _os.environ.get("DRE_HABILITADO", "0") == "1"
+
+
+@app.context_processor
+def _injetar_dre_habilitado():
+    return {"dre_habilitado": DRE_HABILITADO}
+
+
 @app.route("/dre")
 def pagina_dre():
+    if not DRE_HABILITADO:
+        abort(404)
     hoje = datetime.now(_BRT)
     aba  = request.args.get("aba", "pagamento")  # "pagamento" | "referencia" | "ajustes"
 
@@ -4610,6 +4622,8 @@ def pagina_dre():
 
 @app.route("/dre/api/aceitar-ajuste", methods=["POST"])
 def dre_aceitar_ajuste():
+    if not DRE_HABILITADO:
+        abort(404)
     dados = request.get_json(force=True, silent=True) or {}
     codigo_atual  = str(dados.get("codigo_atual", "")).strip()
     descricao     = str(dados.get("descricao", "")).strip()
@@ -4642,6 +4656,8 @@ def dre_aceitar_ajuste():
 
 @app.route("/dre/api/recalcular", methods=["POST"])
 def dre_api_recalcular():
+    if not DRE_HABILITADO:
+        abort(404)
     from calendar import monthrange
     try:
         dados = request.get_json(force=True, silent=True) or {}

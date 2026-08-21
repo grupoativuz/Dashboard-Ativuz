@@ -735,6 +735,7 @@
     <span class="dash-acao-sub">Ver locações registradas</span>
   </a>
 
+  {% if dre_habilitado %}
   <a href="{{ url_for('pagina_dre') }}" class="dash-acao">
     <div class="dash-acao-icon success">
       <svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -744,6 +745,7 @@
     <span class="dash-acao-label">DRE</span>
     <span class="dash-acao-sub">Demonstrativo de resultado</span>
   </a>
+  {% endif %}
 
 </div>
 

@@ -106,6 +106,7 @@
               </span>
               <span class="sb-item-label">Inadimplência</span>
             </a>
+            {% if dre_habilitado %}
             <a href="{{ url_for('pagina_dre') }}" class="sb-item"
                data-active="{{ 'true' if active == 'dre' else 'false' }}"
                aria-current="{{ 'page' if active == 'dre' else 'false' }}">
@@ -116,6 +117,7 @@
               </span>
               <span class="sb-item-label">DRE</span>
             </a>
+            {% endif %}
             <a href="{{ url_for('pagina_financiamentos') }}" class="sb-item"
                data-active="{{ 'true' if active == 'financiamentos' else 'false' }}"
                aria-current="{{ 'page' if active == 'financiamentos' else 'false' }}">
