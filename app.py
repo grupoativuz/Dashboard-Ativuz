@@ -4092,6 +4092,7 @@ def _dre_ler_lancamentos(filtro_tipo=None, grupo=_DRE_GRUPO_PADRAO):
                 conta   = str(col(row, "conta") or "").strip()
                 num     = col(row, "número do lançamento", "numero do lançamento",
                               "numero do lancamento")
+                cliente = str(col(row, "pagar para ou receber de") or "").strip()
 
                 registros.append({
                     "tipo_arquivo": tipo_arquivo,
@@ -4105,6 +4106,7 @@ def _dre_ler_lancamentos(filtro_tipo=None, grupo=_DRE_GRUPO_PADRAO):
                     "conta":        conta,
                     "grupo":        _dre_classificar_grupo(unidade, conta),
                     "num":          str(num or "").strip(),
+                    "cliente":      cliente,
                 })
         except Exception:
             import traceback; traceback.print_exc()
@@ -6895,6 +6897,128 @@ def _ad_acumulado(meses_dict, chaves):
     return dict(tot)
 
 
+
+def _ad_divida():
+    """
+    Saldo devedor dos financiamentos/consórcios em aberto, com corte curto x longo prazo.
+
+    Curto prazo = parcelas que vencem nos próximos 12 meses; o resto é longo prazo.
+    Contratos de veículos já vendidos ficam de fora.
+    """
+    try:
+        sb   = _supabase()
+        rows = sb.table("financiamentos_contratos").select("*").execute().data or []
+    except Exception:
+        return {"total": 0.0, "curto": 0.0, "longo": 0.0, "contratos": 0}
+
+    hoje = datetime.now(_BRT).date()
+    total = curto = longo = 0.0
+    n = 0
+    for r in rows:
+        if r.get("vendido"):
+            continue
+        try:
+            parcela  = float(r["valor_parcela"])
+            restante = _fin_calcular_restante(r, hoje)
+        except Exception:
+            continue
+        if restante <= 0:
+            continue
+        n += 1
+        total += restante * parcela
+        curto += min(restante, 12) * parcela
+        longo += max(0, restante - 12) * parcela
+    return {"total": total, "curto": curto, "longo": longo, "contratos": n}
+
+
+def _ad_frota_valor():
+    """Valor FIPE atual da frota vs. valor de aquisição, e série mensal do FIPE total."""
+    try:
+        sb = _supabase()
+        if sb is None:
+            return {"fipe": 0.0, "aquisicao": 0.0, "veiculos": 0, "serie": []}
+        res_v = sb.table("frota_veiculos").select(
+            "placa, vl_aquisicao").eq("ativo", True).execute()
+        res_h = sb.table("frota_fipe_historico").select(
+            "placa, mes_ref, valor").execute()
+    except Exception:
+        return {"fipe": 0.0, "aquisicao": 0.0, "veiculos": 0, "serie": []}
+
+    placas = {v["placa"] for v in (res_v.data or [])}
+    aquisicao = sum(float(v.get("vl_aquisicao") or 0) for v in (res_v.data or []))
+
+    _M = {"jan": 1, "fev": 2, "mar": 3, "abr": 4, "mai": 5, "jun": 6,
+          "jul": 7, "ago": 8, "set": 9, "out": 10, "nov": 11, "dez": 12}
+
+    def _ref_key(ref):
+        """'MAI/26' → (2026, 5); None se não reconhecer."""
+        try:
+            mes, ano = str(ref).lower().replace("/", " ").split()
+            return (2000 + int(ano), _M[mes[:3]])
+        except Exception:
+            return None
+
+    por_mes = {}
+    ultimo_por_placa = {}
+    for row in (res_h.data or []):
+        if row["placa"] not in placas:
+            continue
+        k = _ref_key(row.get("mes_ref"))
+        if not k:
+            continue
+        valor = float(row["valor"])
+        por_mes.setdefault(k, {})[row["placa"]] = valor
+        if row["placa"] not in ultimo_por_placa or k > ultimo_por_placa[row["placa"]][0]:
+            ultimo_por_placa[row["placa"]] = (k, valor)
+
+    serie = [{"label": f"{k[1]:02d}/{str(k[0])[2:]}",
+              "fipe":  round(sum(por_mes[k].values()), 2)}
+             for k in sorted(por_mes)]
+
+    fipe_atual = sum(v for _, v in ultimo_por_placa.values())
+    return {"fipe": fipe_atual, "aquisicao": aquisicao,
+            "veiculos": len(placas), "serie": serie}
+
+
+def _ad_inadimplencia():
+    """Total em atraso mais recente e a série semanal dos snapshots."""
+    try:
+        sb = _supabase()
+        rows = (sb.table("inad_snapshots")
+                  .select("semana,total_casos,total_valor")
+                  .order("semana").execute().data or [])
+    except Exception:
+        return {"total": 0.0, "casos": 0, "serie": []}
+
+    serie = []
+    for r in rows:
+        try:
+            d = date.fromisoformat(r["semana"])
+        except Exception:
+            continue
+        serie.append({"label": d.strftime("%d/%m"),
+                      "valor": round(float(r["total_valor"] or 0), 2)})
+    ult = rows[-1] if rows else {}
+    return {"total": float(ult.get("total_valor") or 0),
+            "casos": int(ult.get("total_casos") or 0),
+            "serie": serie}
+
+
+def _ad_receita_por_cliente(lancamentos, limite=10):
+    """Top clientes por receita de locação no período dos lançamentos recebidos."""
+    por = collections.defaultdict(float)
+    for l in lancamentos:
+        if _dre_categoria(l["codigo"]) not in ("RECEITAS DE LOCAÇÃO", "RECEITAS ADICIONAIS"):
+            continue
+        nome = l.get("cliente") or "—"
+        por[nome] += _ad_valor(l)
+    top = sorted(por.items(), key=lambda kv: -kv[1])[:limite]
+    total = sum(por.values()) or 1.0
+    return [{"nome": n, "valor": v, "valor_s": _brl(v),
+             "pct": round(100 * v / total, 1)} for n, v in top]
+
+
+
 # ── Análise de Dados ──────────────────────────────────────────────────────────
 # Página em construção: estrutura e seções definidas, cálculos a implementar
 # depois (receita/margens via _dre_calcular, alavancagem via
@@ -6906,40 +7030,90 @@ def pagina_benchmarking():
     # Regime de caixa: é como a operação é acompanhada no dia a dia.
     lancs = _dre_ler_lancamentos("pagamento", grupo=None)
     meses = _ad_dre_mensal(lancs)
+    disponiveis = sorted(meses)
 
-    ultimos12 = _ad_ultimos_meses(meses, 12)
-    acum      = _ad_acumulado(meses, ultimos12) if ultimos12 else {}
+    # Filtro: "12m" (padrão) ou um mês específico no formato AAAA-MM.
+    periodo_req = (request.args.get("periodo") or "12m").strip()
+    ref_sel = None
+    if periodo_req != "12m":
+        try:
+            a, mm = periodo_req.split("-")
+            cand = (int(a), int(mm))
+            if cand in meses:
+                ref_sel = cand
+        except (ValueError, TypeError):
+            ref_sel = None
 
+    if ref_sel:
+        chaves = [ref_sel]
+        periodo_label = f"{ref_sel[1]:02d}/{ref_sel[0]}"
+        periodo_val   = f"{ref_sel[0]}-{ref_sel[1]:02d}"
+    else:
+        chaves = _ad_ultimos_meses(meses, 12)
+        periodo_val = "12m"
+        periodo_label = (f"{chaves[0][1]:02d}/{chaves[0][0]} a "
+                         f"{chaves[-1][1]:02d}/{chaves[-1][0]}") if chaves else "—"
+
+    acum   = _ad_acumulado(meses, chaves) if chaves else {}
     rl     = acum.get("receita_liquida", 0.0)
     ebitda = acum.get("ebitda", 0.0)
 
+    # A série do gráfico mostra sempre os últimos 13 meses; o mês filtrado
+    # fica destacado para dar contexto em vez de virar uma barra solitária.
     serie = []
     for ref in _ad_ultimos_meses(meses, 13):
-        v  = meses[ref]
+        v   = meses[ref]
         rlm = v["receita_liquida"]
         serie.append({
             "label":           f"{ref[1]:02d}/{str(ref[0])[2:]}",
             "receita_liquida": round(rlm, 2),
             "ebitda":          round(v["ebitda"], 2),
             "margem":          round(100 * v["ebitda"] / rlm, 1) if rlm else 0.0,
+            "sel":             (ref == ref_sel),
         })
 
-    periodo = ""
-    if ultimos12:
-        ini, fim = ultimos12[0], ultimos12[-1]
-        periodo  = f"{ini[1]:02d}/{ini[0]} a {fim[1]:02d}/{fim[0]}"
+    divida = _ad_divida()
+    frota  = _ad_frota_valor()
+    inad   = _ad_inadimplencia()
+
+    lancs_periodo = [l for l in lancs if _ad_mes_ref(l["dt"]) in chaves]
+    clientes = _ad_receita_por_cliente(lancs_periodo)
+
+    # Dívida/EBITDA anualiza quando o filtro é de um mês só, para o índice
+    # continuar comparável com o padrão de mercado (dívida sobre EBITDA anual).
+    ebitda_anual = ebitda if len(chaves) >= 12 else ebitda * 12 / max(1, len(chaves))
+    div_ebitda   = (divida["total"] / ebitda_anual) if ebitda_anual > 0 else None
+
+    receita_periodo = sum(l["valor"] for l in lancs_periodo
+                          if _dre_categoria(l["codigo"]) == "RECEITAS DE LOCAÇÃO")
+    taxa_inad = (100 * inad["total"] / receita_periodo) if receita_periodo > 0 else None
 
     kpis = {
-        "receita_liquida": _hod_dinheiro(rl),
-        "ebitda":          _hod_dinheiro(ebitda),
+        "receita_liquida": _brl(rl),
+        "ebitda":          _brl(ebitda),
         "margem_ebitda":   f"{100 * ebitda / rl:.1f}%".replace(".", ",") if rl else "—",
-        "lucro_liquido":   _hod_dinheiro(acum.get("lucro_liquido", 0.0)),
-        "investidores":    _hod_dinheiro(acum.get("investidores", 0.0)),
-        "periodo":         periodo,
+        "lucro_liquido":   _brl(acum.get("lucro_liquido", 0.0)),
+        "investidores":    _brl(acum.get("investidores", 0.0)),
+        "saldo_devedor":   _brl(divida["total"]),
+        "div_curto":       _brl(divida["curto"]),
+        "div_longo":       _brl(divida["longo"]),
+        "div_ebitda":      f"{div_ebitda:.2f}x".replace(".", ",") if div_ebitda else "—",
+        "frota_fipe":      _brl(frota["fipe"]),
+        "frota_aquisicao": _brl(frota["aquisicao"]),
+        "frota_veiculos":  frota["veiculos"],
+        "inad_total":      _brl(inad["total"]),
+        "inad_casos":      inad["casos"],
+        "taxa_inad":       f"{taxa_inad:.1f}%".replace(".", ",") if taxa_inad is not None else "—",
+        "periodo":         periodo_label,
     }
 
+    opcoes = [{"valor": f"{a}-{mm:02d}", "label": f"{mm:02d}/{a}"}
+              for a, mm in reversed(disponiveis)]
+
     return render_template("benchmarking.html", active="benchmarking",
-                           kpis=kpis, serie=serie)
+                           kpis=kpis, serie=serie, clientes=clientes,
+                           serie_frota=frota["serie"], serie_inad=inad["serie"],
+                           opcoes=opcoes, periodo_sel=periodo_val)
 
 
 @app.route("/configuracoes")

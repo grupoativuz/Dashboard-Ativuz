@@ -30,6 +30,14 @@
 /* ── Sections ── */
 .ad-section { margin-bottom: 32px; }
 .ad-chart-wrap { position: relative; height: 300px; }
+.ad-filtro { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; }
+.ad-filtro select { padding:6px 10px; border:1px solid var(--line, #d8dee9); border-radius:8px;
+  background: var(--card, #fff); color: var(--ink, #1c2430); font-size:13px; }
+.ad-tabela { width:100%; border-collapse:collapse; font-size:13px; }
+.ad-tabela th, .ad-tabela td { padding:9px 10px; border-bottom:1px solid var(--line, #eef1f5); text-align:left; }
+.ad-tabela th { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-3, #7b8794); }
+.ad-tabela .num { text-align:right; font-variant-numeric: tabular-nums; }
+.ad-tabela .pos { color: var(--ink-3, #7b8794); width:34px; }
 .ad-section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 6px; }
 .ad-section-title { font-size: 15px; font-weight: 700; color: var(--ink); }
 .ad-section-sub   { font-size: 12px; color: var(--ink-3); }
@@ -65,7 +73,16 @@
 
   <div class="ad-header">
     <h1>Análise de Dados</h1>
-    <p>Alavancagem, receita e indicadores operacionais da Ativuz — página em construção, cálculos ainda não implementados.</p>
+    <p>Alavancagem, receita e indicadores operacionais da Ativuz — período: <strong>{{ kpis.periodo }}</strong>.</p>
+    <form method="get" class="ad-filtro">
+      <label for="periodo">Período:</label>
+      <select name="periodo" id="periodo" onchange="this.form.submit()">
+        <option value="12m" {{ 'selected' if periodo_sel == '12m' }}>Últimos 12 meses</option>
+        {% for o in opcoes %}
+        <option value="{{ o.valor }}" {{ 'selected' if periodo_sel == o.valor }}>{{ o.label }}</option>
+        {% endfor %}
+      </select>
+    </form>
   </div>
 
   <!-- ── KPIs no topo ── -->
@@ -81,19 +98,23 @@
     </div>
     <div class="ad-kpi">
       <div class="ad-kpi-label">Saldo Devedor</div>
-      <div class="ad-kpi-value">—</div>
+      <div class="ad-kpi-value">{{ kpis.saldo_devedor }}</div>
+      <div class="ad-kpi-label" style="margin-top:4px">CP {{ kpis.div_curto }}</div>
     </div>
     <div class="ad-kpi">
       <div class="ad-kpi-label">Dívida / EBITDA</div>
-      <div class="ad-kpi-value">—</div>
+      <div class="ad-kpi-value">{{ kpis.div_ebitda }}</div>
+      
     </div>
     <div class="ad-kpi">
       <div class="ad-kpi-label">Valor da Frota (FIPE)</div>
-      <div class="ad-kpi-value">—</div>
+      <div class="ad-kpi-value">{{ kpis.frota_fipe }}</div>
+      <div class="ad-kpi-label" style="margin-top:4px">{{ kpis.frota_veiculos }} veículos</div>
     </div>
     <div class="ad-kpi">
       <div class="ad-kpi-label">Taxa de Inadimplência</div>
-      <div class="ad-kpi-value">—</div>
+      <div class="ad-kpi-value">{{ kpis.taxa_inad }}</div>
+      <div class="ad-kpi-label" style="margin-top:4px">{{ kpis.inad_total }} · {{ kpis.inad_casos }} casos</div>
     </div>
   </div>
 
@@ -117,20 +138,15 @@
       </div>
     </div>
     <div class="ad-split">
-      <div class="ad-placeholder">
-        <div>
-          Gráfico de evolução da dívida (saldo devedor e Dívida/EBITDA)
-          <div class="ad-placeholder-tag">em construção</div>
-        </div>
-      </div>
+      <div class="ad-chart-wrap"><canvas id="chart-divida"></canvas></div>
       <div class="ad-mini-cards">
         <div class="ad-mini-card">
           <div class="ad-kpi-label">Curto Prazo (até 12m)</div>
-          <div class="ad-kpi-value">—</div>
+          <div class="ad-kpi-value">{{ kpis.div_curto }}</div>
         </div>
         <div class="ad-mini-card">
           <div class="ad-kpi-label">Longo Prazo</div>
-          <div class="ad-kpi-value">—</div>
+          <div class="ad-kpi-value">{{ kpis.div_longo }}</div>
         </div>
       </div>
     </div>
@@ -144,12 +160,7 @@
         <div class="ad-section-sub">FIPE total da frota vs. valor de aquisição, mês a mês</div>
       </div>
     </div>
-    <div class="ad-placeholder">
-      <div>
-        Gráfico de evolução do valor FIPE da frota vs. valor de aquisição
-        <div class="ad-placeholder-tag">em construção</div>
-      </div>
-    </div>
+    <div class="ad-chart-wrap"><canvas id="chart-frota"></canvas></div>
   </div>
 
   <!-- ── Inadimplência ── -->
@@ -160,12 +171,7 @@
         <div class="ad-section-sub">Total em atraso por semana</div>
       </div>
     </div>
-    <div class="ad-placeholder">
-      <div>
-        Gráfico de evolução semanal do total em atraso
-        <div class="ad-placeholder-tag">em construção</div>
-      </div>
-    </div>
+    <div class="ad-chart-wrap"><canvas id="chart-inad"></canvas></div>
   </div>
 
   <!-- ── Receita por Cliente ── -->
@@ -176,12 +182,23 @@
         <div class="ad-section-sub">Top 10 clientes ativos por receita</div>
       </div>
     </div>
-    <div class="ad-placeholder">
-      <div>
-        Tabela/ranking dos clientes com maior receita
-        <div class="ad-placeholder-tag">em construção</div>
-      </div>
-    </div>
+    {% if clientes %}
+    <table class="ad-tabela">
+      <thead><tr><th>#</th><th>Cliente</th><th class="num">Receita</th><th class="num">% do total</th></tr></thead>
+      <tbody>
+        {% for c in clientes %}
+        <tr>
+          <td class="pos">{{ loop.index }}</td>
+          <td>{{ c.nome }}</td>
+          <td class="num">{{ c.valor_s }}</td>
+          <td class="num">{{ c.pct }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="ad-placeholder"><div>Sem receita de locação no período</div></div>
+    {% endif %}
   </div>
 
 </div>
@@ -189,12 +206,18 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <script>
 const AD_SERIE = {{ serie|tojson }};
+const AD_FROTA = {{ serie_frota|tojson }};
+const AD_INAD  = {{ serie_inad|tojson }};
+const AD_AQUIS = {{ kpis.frota_aquisicao|tojson }};
+const brl = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
 new Chart(document.getElementById('chart-receita'), {
   data: {
     labels: AD_SERIE.map(m => m.label),
     datasets: [
       { type:'bar', label:'Receita líquida', data: AD_SERIE.map(m => m.receita_liquida),
-        backgroundColor:'rgba(59,130,246,.55)', borderRadius:4, yAxisID:'y' },
+        backgroundColor: AD_SERIE.map(m => m.sel ? 'rgba(37,99,235,.95)' : 'rgba(59,130,246,.55)'),
+        borderRadius:4, yAxisID:'y' },
       { type:'line', label:'Margem EBITDA (%)', data: AD_SERIE.map(m => m.margem),
         borderColor:'#f59e0b', backgroundColor:'#f59e0b', tension:.3, yAxisID:'y1' }
     ]
@@ -212,5 +235,54 @@ new Chart(document.getElementById('chart-receita'), {
     }
   }
 });
+
+// ── Alavancagem: saldo devedor x EBITDA mensal ──
+new Chart(document.getElementById('chart-divida'), {
+  data: {
+    labels: AD_SERIE.map(m => m.label),
+    datasets: [
+      { type:'bar', label:'EBITDA do mês', data: AD_SERIE.map(m => m.ebitda),
+        backgroundColor:'rgba(16,185,129,.55)', borderRadius:4 }
+    ]
+  },
+  options: { responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ position:'bottom' },
+      tooltip:{ callbacks:{ label: c => c.dataset.label + ': ' + brl(c.parsed.y) } } },
+    scales:{ y:{ ticks:{ callback: v => 'R$ ' + (v/1000).toFixed(0) + 'k' } } } }
+});
+
+// ── Valor da frota: FIPE mês a mês vs. valor de aquisição ──
+if (AD_FROTA.length) {
+  new Chart(document.getElementById('chart-frota'), {
+    data: {
+      labels: AD_FROTA.map(m => m.label),
+      datasets: [
+        { type:'line', label:'FIPE total', data: AD_FROTA.map(m => m.fipe),
+          borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,.12)', fill:true, tension:.3 }
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'bottom' },
+        tooltip:{ callbacks:{ label: c => c.dataset.label + ': ' + brl(c.parsed.y) } } },
+      scales:{ y:{ ticks:{ callback: v => 'R$ ' + (v/1000).toFixed(0) + 'k' } } } }
+  });
+}
+
+// ── Inadimplência: total em atraso por semana ──
+if (AD_INAD.length) {
+  new Chart(document.getElementById('chart-inad'), {
+    data: {
+      labels: AD_INAD.map(m => m.label),
+      datasets: [
+        { type:'line', label:'Total em atraso', data: AD_INAD.map(m => m.valor),
+          borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,.12)', fill:true, tension:.3 }
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'bottom' },
+        tooltip:{ callbacks:{ label: c => c.dataset.label + ': ' + brl(c.parsed.y) } } },
+      scales:{ y:{ ticks:{ callback: v => 'R$ ' + (v/1000).toFixed(0) + 'k' } } } }
+  });
+}
 </script>
 {% endblock %}
