@@ -104,6 +104,9 @@
     <div class="ad-kpi">
       <div class="ad-kpi-label">Dívida / EBITDA</div>
       <div class="ad-kpi-value">{{ kpis.div_ebitda }}</div>
+      {% if kpis.n_nao_iniciados %}
+      <div class="ad-kpi-label" style="margin-top:4px">{{ kpis.div_ebitda_curso }} em curso</div>
+      {% endif %}
       
     </div>
     <div class="ad-kpi">
@@ -148,6 +151,18 @@
           <div class="ad-kpi-label">Longo Prazo</div>
           <div class="ad-kpi-value">{{ kpis.div_longo }}</div>
         </div>
+        {% if kpis.n_nao_iniciados %}
+        <div class="ad-mini-card">
+          <div class="ad-kpi-label">Ainda não iniciada</div>
+          <div class="ad-kpi-value">{{ kpis.div_nao_iniciada }}</div>
+          <div class="ad-kpi-label" style="margin-top:4px">{{ kpis.n_nao_iniciados }} contrato(s) sem parcela vencida</div>
+        </div>
+        <div class="ad-mini-card">
+          <div class="ad-kpi-label">Em curso</div>
+          <div class="ad-kpi-value">{{ kpis.div_em_curso }}</div>
+          <div class="ad-kpi-label" style="margin-top:4px">{{ kpis.div_ebitda_curso }} sobre EBITDA</div>
+        </div>
+        {% endif %}
       </div>
     </div>
   </div>

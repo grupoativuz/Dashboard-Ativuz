@@ -6913,7 +6913,8 @@ def _ad_divida():
 
     hoje = datetime.now(_BRT).date()
     total = curto = longo = 0.0
-    n = 0
+    nao_iniciada = 0.0
+    n = n_nao_iniciados = 0
     for r in rows:
         if r.get("vendido"):
             continue
@@ -6925,10 +6926,29 @@ def _ad_divida():
         if restante <= 0:
             continue
         n += 1
-        total += restante * parcela
+        saldo = restante * parcela
+        total += saldo
         curto += min(restante, 12) * parcela
         longo += max(0, restante - 12) * parcela
-    return {"total": total, "curto": curto, "longo": longo, "contratos": n}
+
+        # Contrato ainda não iniciado: nenhuma parcela venceu até hoje. Pesa no
+        # saldo devedor sem ter contrapartida no EBITDA já realizado.
+        p1 = r.get("data_parcela_1")
+        comecou = True
+        if p1:
+            try:
+                comecou = date.fromisoformat(str(p1)[:10]) <= hoje
+            except Exception:
+                comecou = True
+        elif restante >= int(r["parcelas_total"]):
+            comecou = False
+        if not comecou:
+            nao_iniciada += saldo
+            n_nao_iniciados += 1
+
+    return {"total": total, "curto": curto, "longo": longo, "contratos": n,
+            "nao_iniciada": nao_iniciada, "em_curso": total - nao_iniciada,
+            "contratos_nao_iniciados": n_nao_iniciados}
 
 
 def _ad_frota_valor():
@@ -7083,6 +7103,7 @@ def pagina_benchmarking():
     # continuar comparável com o padrão de mercado (dívida sobre EBITDA anual).
     ebitda_anual = ebitda if len(chaves) >= 12 else ebitda * 12 / max(1, len(chaves))
     div_ebitda   = (divida["total"] / ebitda_anual) if ebitda_anual > 0 else None
+    div_ebitda_curso = (divida["em_curso"] / ebitda_anual) if ebitda_anual > 0 else None
 
     receita_periodo = sum(l["valor"] for l in lancs_periodo
                           if _dre_categoria(l["codigo"]) == "RECEITAS DE LOCAÇÃO")
@@ -7098,6 +7119,10 @@ def pagina_benchmarking():
         "div_curto":       _brl(divida["curto"]),
         "div_longo":       _brl(divida["longo"]),
         "div_ebitda":      f"{div_ebitda:.2f}x".replace(".", ",") if div_ebitda else "—",
+        "div_ebitda_curso": f"{div_ebitda_curso:.2f}x".replace(".", ",") if div_ebitda_curso else "—",
+        "div_nao_iniciada": _brl(divida["nao_iniciada"]),
+        "div_em_curso":     _brl(divida["em_curso"]),
+        "n_nao_iniciados":  divida["contratos_nao_iniciados"],
         "frota_fipe":      _brl(frota["fipe"]),
         "frota_aquisicao": _brl(frota["aquisicao"]),
         "frota_veiculos":  frota["veiculos"],
