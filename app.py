@@ -19,6 +19,7 @@ import re
 import subprocess
 import unicodedata
 import uuid
+import collections
 
 from services.gerar_contrato import gerar_docx, gerar_termo_quitacao, gerar_notificacao_avalista, gerar_notificacao_inadimplente, nome_arquivo_saida
 from services.gerar_vistoria_entrada_saida import gerar_vistoria_entrada_saida, docx_para_pdf as _docx_para_pdf_es
@@ -6817,6 +6818,81 @@ def api_hodometros_placa(placa):
         "historico": historico,
         "total":     _hod_dinheiro(sum(h["valor"] for h in historico)),
     })
+
+
+# ── Análise de Dados: agregações a partir dos lançamentos ────────────────────
+# As categorias seguem a vinculação feita no Blue Fleet (_DRE_CATEGORIA_POR_NATUREZA).
+# Frota de investidores fica FORA dos indicadores da Ativuz e é reportada à parte.
+
+# Venda de veículo é desmobilização de ativo (seção INVESTIMENTOS na DRE do ERP),
+# não receita operacional — fica fora da receita bruta e das margens.
+_AD_RECEITA_BRUTA = ("RECEITAS DE LOCAÇÃO", "RECEITAS ADICIONAIS", "REEMBOLSOS")
+_AD_DEDUCOES      = ("DEDUÇÕES",)
+_AD_CUSTOS        = ("CUSTOS DIRETOS DA FROTA", "CUSTOS OPERACIONAIS")
+_AD_DESPESAS      = ("ADMINISTRATIVAS", "COMERCIAIS", "TECNOLOGIA")
+_AD_FINANCEIRO    = ("RECEITAS FINANCEIRAS", "DESPESAS FINANCEIRAS",
+                     "RESULTADO NÃO OPERACIONAL")
+_AD_INVESTIDORES  = ("FROTA INVESTIDORES",)
+
+
+def _ad_valor(lanc):
+    """Valor do lançamento com o sinal econômico correto (não o do fluxo de caixa)."""
+    v = lanc["valor"]
+    return -v if lanc["codigo"] in _DRE_CODIGOS_SINAL_INVERTIDO else v
+
+
+def _ad_mes_ref(dt):
+    return (dt.year, dt.month)
+
+
+def _ad_dre_mensal(lancamentos):
+    """
+    Consolida lançamentos em {(ano, mes): {receita_bruta, deducoes, ...}}.
+
+    Só entram as categorias de resultado: compra de veículos, financiamentos,
+    imobilizado, mútuos, cauções e aportes são fluxo de caixa, não resultado.
+    """
+    meses = {}
+    for l in lancamentos:
+        cat = _dre_categoria(l["codigo"])
+        if not cat:
+            continue
+        ref = _ad_mes_ref(l["dt"])
+        m = meses.setdefault(ref, {
+            "receita_bruta": 0.0, "deducoes": 0.0, "custos": 0.0,
+            "despesas": 0.0, "financeiro": 0.0, "investidores": 0.0,
+        })
+        v = _ad_valor(l)
+        if   cat in _AD_RECEITA_BRUTA: m["receita_bruta"] += v
+        elif cat in _AD_DEDUCOES:      m["deducoes"]      += v
+        elif cat in _AD_CUSTOS:        m["custos"]        += v
+        elif cat in _AD_DESPESAS:      m["despesas"]      += v
+        elif cat in _AD_FINANCEIRO:    m["financeiro"]    += v
+        elif cat in _AD_INVESTIDORES:  m["investidores"]  += v
+
+    for m in meses.values():
+        m["receita_liquida"] = m["receita_bruta"] + m["deducoes"]
+        m["lucro_bruto"]     = m["receita_liquida"] + m["custos"]
+        m["ebitda"]          = m["lucro_bruto"] + m["despesas"]
+        m["lucro_liquido"]   = m["ebitda"] + m["financeiro"]
+    return meses
+
+
+def _ad_ultimos_meses(meses_dict, n=12, ate=None):
+    """As n chaves (ano, mes) mais recentes até 'ate' (default: último mês com dado)."""
+    chaves = sorted(meses_dict)
+    if ate:
+        chaves = [c for c in chaves if c <= ate]
+    return chaves[-n:]
+
+
+def _ad_acumulado(meses_dict, chaves):
+    """Soma dos indicadores no conjunto de meses informado."""
+    tot = collections.defaultdict(float)
+    for c in chaves:
+        for k, v in meses_dict.get(c, {}).items():
+            tot[k] += v
+    return dict(tot)
 
 
 # ── Análise de Dados ──────────────────────────────────────────────────────────
