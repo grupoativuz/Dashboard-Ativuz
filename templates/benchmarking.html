@@ -29,6 +29,7 @@
 
 /* ── Sections ── */
 .ad-section { margin-bottom: 32px; }
+.ad-chart-wrap { position: relative; height: 300px; }
 .ad-section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 6px; }
 .ad-section-title { font-size: 15px; font-weight: 700; color: var(--ink); }
 .ad-section-sub   { font-size: 12px; color: var(--ink-3); }
@@ -71,11 +72,12 @@
   <div class="ad-kpis">
     <div class="ad-kpi">
       <div class="ad-kpi-label">Receita Líquida (12m)</div>
-      <div class="ad-kpi-value">—</div>
+      <div class="ad-kpi-value">{{ kpis.receita_liquida }}</div>
     </div>
     <div class="ad-kpi">
       <div class="ad-kpi-label">EBITDA (12m)</div>
-      <div class="ad-kpi-value">—</div>
+      <div class="ad-kpi-value">{{ kpis.ebitda }}</div>
+      <div class="ad-kpi-label" style="margin-top:4px">margem {{ kpis.margem_ebitda }}</div>
     </div>
     <div class="ad-kpi">
       <div class="ad-kpi-label">Saldo Devedor</div>
@@ -100,15 +102,10 @@
     <div class="ad-section-head">
       <div>
         <div class="ad-section-title">Receita &amp; Margens</div>
-        <div class="ad-section-sub">Receita líquida e margem EBITDA, mês a mês</div>
+        <div class="ad-section-sub">Receita líquida e margem EBITDA, mês a mês — 12 meses móveis ({{ kpis.periodo }})</div>
       </div>
     </div>
-    <div class="ad-placeholder">
-      <div>
-        Gráfico de evolução mensal (receita líquida + margem EBITDA)
-        <div class="ad-placeholder-tag">em construção</div>
-      </div>
-    </div>
+    <div class="ad-chart-wrap"><canvas id="chart-receita"></canvas></div>
   </div>
 
   <!-- ── Alavancagem ── -->
@@ -188,4 +185,32 @@
   </div>
 
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script>
+const AD_SERIE = {{ serie|tojson }};
+new Chart(document.getElementById('chart-receita'), {
+  data: {
+    labels: AD_SERIE.map(m => m.label),
+    datasets: [
+      { type:'bar', label:'Receita líquida', data: AD_SERIE.map(m => m.receita_liquida),
+        backgroundColor:'rgba(59,130,246,.55)', borderRadius:4, yAxisID:'y' },
+      { type:'line', label:'Margem EBITDA (%)', data: AD_SERIE.map(m => m.margem),
+        borderColor:'#f59e0b', backgroundColor:'#f59e0b', tension:.3, yAxisID:'y1' }
+    ]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    interaction:{ mode:'index', intersect:false },
+    plugins:{ legend:{ position:'bottom' },
+      tooltip:{ callbacks:{ label: c => c.dataset.yAxisID === 'y1'
+        ? c.dataset.label + ': ' + c.parsed.y.toFixed(1).replace('.', ',') + '%'
+        : c.dataset.label + ': R$ ' + c.parsed.y.toLocaleString('pt-BR', {minimumFractionDigits:2}) } } },
+    scales:{
+      y:{ position:'left', ticks:{ callback: v => 'R$ ' + (v/1000).toFixed(0) + 'k' } },
+      y1:{ position:'right', grid:{ drawOnChartArea:false }, ticks:{ callback: v => v + '%' } }
+    }
+  }
+});
+</script>
 {% endblock %}

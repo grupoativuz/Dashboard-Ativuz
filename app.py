@@ -6903,7 +6903,43 @@ def _ad_acumulado(meses_dict, chaves):
 
 @app.route("/benchmarking")
 def pagina_benchmarking():
-    return render_template("benchmarking.html", active="benchmarking")
+    # Regime de caixa: é como a operação é acompanhada no dia a dia.
+    lancs = _dre_ler_lancamentos("pagamento", grupo=None)
+    meses = _ad_dre_mensal(lancs)
+
+    ultimos12 = _ad_ultimos_meses(meses, 12)
+    acum      = _ad_acumulado(meses, ultimos12) if ultimos12 else {}
+
+    rl     = acum.get("receita_liquida", 0.0)
+    ebitda = acum.get("ebitda", 0.0)
+
+    serie = []
+    for ref in _ad_ultimos_meses(meses, 13):
+        v  = meses[ref]
+        rlm = v["receita_liquida"]
+        serie.append({
+            "label":           f"{ref[1]:02d}/{str(ref[0])[2:]}",
+            "receita_liquida": round(rlm, 2),
+            "ebitda":          round(v["ebitda"], 2),
+            "margem":          round(100 * v["ebitda"] / rlm, 1) if rlm else 0.0,
+        })
+
+    periodo = ""
+    if ultimos12:
+        ini, fim = ultimos12[0], ultimos12[-1]
+        periodo  = f"{ini[1]:02d}/{ini[0]} a {fim[1]:02d}/{fim[0]}"
+
+    kpis = {
+        "receita_liquida": _hod_dinheiro(rl),
+        "ebitda":          _hod_dinheiro(ebitda),
+        "margem_ebitda":   f"{100 * ebitda / rl:.1f}%".replace(".", ",") if rl else "—",
+        "lucro_liquido":   _hod_dinheiro(acum.get("lucro_liquido", 0.0)),
+        "investidores":    _hod_dinheiro(acum.get("investidores", 0.0)),
+        "periodo":         periodo,
+    }
+
+    return render_template("benchmarking.html", active="benchmarking",
+                           kpis=kpis, serie=serie)
 
 
 @app.route("/configuracoes")
