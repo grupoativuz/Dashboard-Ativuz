@@ -3795,15 +3795,50 @@ _DRE_LAYOUT = [
 ]
 
 
-def _dre_ler_lancamentos(filtro_tipo=None):
+# Grupos de unidade para visualização do DRE.
+# Ativuz e AZ são analisadas sempre juntas; investidores ficam separados.
+_DRE_GRUPO_PADRAO = "ativuz_az"
+_DRE_GRUPOS = {
+    "ativuz_az":  "Ativuz + AZ",
+    "joao_paulo": "João Paulo Consórcios",
+    "luz_divina": "Luz Divina",
+}
+
+
+def _dre_classificar_grupo(unidade, conta):
+    """Grupo de visualização a partir da Unidade declarada; cai na Conta quando vazia."""
+    u = str(unidade or "").strip().upper()
+    if "JOAO PAULO" in u or "JOÃO PAULO" in u:
+        return "joao_paulo"
+    if "LUZ DIVINA" in u:
+        return "luz_divina"
+    if u:                                  # ATIVUZ VEÍCULOS / AZ EMPREENDIMENTOS
+        return "ativuz_az"
+    # Unidade em branco (preenchimento ainda em andamento no ERP): as contas de
+    # frota de investidores são exclusivas deles, o resto é Ativuz+AZ.
+    c = str(conta or "").strip().upper()
+    if "JOAO PAULO" in c or "JOÃO PAULO" in c:
+        return "joao_paulo"
+    if "LUZ DIVINA" in c:
+        return "luz_divina"
+    return "ativuz_az"
+
+
+def _dre_ler_lancamentos(filtro_tipo=None, grupo=_DRE_GRUPO_PADRAO):
     """
-    Lê arquivos 'Lançamentos por natureza*.xlsx' da pasta planilhas/dre/.
-    Formato (exportação do sistema):
-      row 2: filtro — contém "PAGAMENTO" ou "REFERÊNCIA"
-      row 5: cabeçalho — Tipo | Descrição | Data | Natureza | Pagar/Receber | Valor | Confirmado
+    Lê arquivos '*.xlsx' de lançamentos por natureza da pasta planilhas/dre/.
+
+    Formato (exportação do Blue Fleet, relatório "Lançamentos por natureza"):
+      row 2: filtro — contém "PAGAMENTO" ou "REFERÊNCIA"/"VENCIMENTO"
+      row 5: cabeçalho nomeado
       row 6+: dados
 
+    As colunas são localizadas pelo NOME do cabeçalho, não pela posição: o ERP
+    exporta layouts diferentes (7 colunas no relatório compacto, 41 no completo)
+    e ambos precisam ser lidos.
+
     filtro_tipo: "pagamento" | "referencia" | None (todos)
+    grupo:       chave de _DRE_GRUPOS | None (todos)
     """
     import openpyxl
 
@@ -3831,6 +3866,24 @@ def _dre_ler_lancamentos(filtro_tipo=None):
             return "pagamento"
         return "desconhecido"
 
+    def _achar_cabecalho(rows):
+        """Índice da linha de cabeçalho (a que contém 'Tipo de Lançamento')."""
+        for i, row in enumerate(rows[:15]):
+            nomes = [str(c or "").strip().lower() for c in row]
+            if "tipo de lançamento" in nomes or "tipo de lancamento" in nomes:
+                return i, {n: j for j, n in enumerate(nomes) if n}
+        return None, {}
+
+    def _parse_data(raw):
+        if isinstance(raw, datetime):
+            return raw
+        if isinstance(raw, str) and raw.strip():
+            try:
+                return datetime.fromisoformat(raw.strip()[:10])
+            except Exception:
+                return None
+        return None
+
     def _ler_arquivo(path):
         registros = []
         try:
@@ -3838,25 +3891,39 @@ def _dre_ler_lancamentos(filtro_tipo=None):
             ws = wb.active
             rows = list(ws.iter_rows(values_only=True))
             wb.close()
+
             tipo_arquivo = _detectar_tipo(rows)
-            for row in rows[5:]:
-                tipo = str(row[0] or "").strip().upper()
+            i_hdr, cols = _achar_cabecalho(rows)
+            if i_hdr is None:
+                return registros
+
+            def col(row, *nomes, default=None):
+                for n in nomes:
+                    j = cols.get(n)
+                    if j is not None and j < len(row):
+                        return row[j]
+                return default
+
+            # A data relevante depende do tipo de data usado na exportação.
+            if tipo_arquivo == "pagamento":
+                campos_data = ("data de pagamento ou recebimento", "pago em",
+                               "data de vencimento")
+            else:
+                campos_data = ("data de vencimento", "data de competência",
+                               "data prevista")
+
+            for row in rows[i_hdr + 1:]:
+                tipo = str(col(row, "tipo de lançamento", "tipo de lancamento") or "").strip().upper()
                 if tipo not in ("ENTRADA", "SAÍDA", "SAIDA"):
                     continue
-                descricao = str(row[1] or "").strip()
-                dt_raw    = row[2]
-                nat_raw   = row[3]
-                val_raw   = row[5]   # col 5 = Valor alocado na Natureza
 
-                if isinstance(dt_raw, datetime):
-                    dt = dt_raw
-                elif isinstance(dt_raw, str):
-                    try:
-                        dt = datetime.fromisoformat(dt_raw[:10])
-                    except Exception:
-                        continue
-                else:
+                dt = _parse_data(col(row, *campos_data))
+                if dt is None:
                     continue
+
+                descricao = str(col(row, "descrição", "descricao") or "").strip()
+                nat_raw   = col(row, "natureza")
+                val_raw   = col(row, "valor alocado na natureza", "valor")
 
                 try:
                     valor = float(str(val_raw).replace(",", ".").replace(" ", ""))
@@ -3871,6 +3938,11 @@ def _dre_ler_lancamentos(filtro_tipo=None):
                     if cod.startswith("01.01.01") or cod.startswith("01.01.02.008"):
                         continue
 
+                unidade = str(col(row, "unidade") or "").strip()
+                conta   = str(col(row, "conta") or "").strip()
+                num     = col(row, "número do lançamento", "numero do lançamento",
+                              "numero do lancamento")
+
                 registros.append({
                     "tipo_arquivo": tipo_arquivo,
                     "tipo":         tipo,
@@ -3879,6 +3951,10 @@ def _dre_ler_lancamentos(filtro_tipo=None):
                     "codigo":       cod,
                     "natureza":     nat_label,
                     "valor":        abs(valor) * (-1 if tipo in ("SAÍDA", "SAIDA") else 1),
+                    "unidade":      unidade,
+                    "conta":        conta,
+                    "grupo":        _dre_classificar_grupo(unidade, conta),
+                    "num":          str(num or "").strip(),
                 })
         except Exception:
             import traceback; traceback.print_exc()
@@ -3890,7 +3966,15 @@ def _dre_ler_lancamentos(filtro_tipo=None):
         for reg in _ler_arquivo(arq):
             if filtro_tipo and reg["tipo_arquivo"] != filtro_tipo:
                 continue
-            chave = (reg["tipo_arquivo"], reg["descricao"], reg["dt"].date(), reg["codigo"])
+            if grupo and reg["grupo"] != grupo:
+                continue
+            # Um mesmo lançamento pode ser rateado em várias naturezas, e lançamentos
+            # distintos podem ter descrição/data/natureza idênticas (folha, benefícios).
+            # Com o número do lançamento a chave é exata; sem ele, cai no modo antigo.
+            if reg["num"]:
+                chave = (reg["tipo_arquivo"], reg["num"], reg["codigo"], reg["valor"])
+            else:
+                chave = (reg["tipo_arquivo"], reg["descricao"], reg["dt"].date(), reg["codigo"])
             if chave in vistos:
                 continue
             vistos.add(chave)
