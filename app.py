@@ -3795,6 +3795,134 @@ _DRE_LAYOUT = [
 ]
 
 
+# ── Categorias de DRE (espelho da vinculação feita no Blue Fleet) ────────────
+# Fonte: Administração > Sistema > Categorias de DRE. Naturezas sem categoria
+# vinculada no ERP ficam fora deste mapa e não entram nos indicadores.
+_DRE_CATEGORIA_POR_NATUREZA = {
+    "01.01.01.001": "RECEITAS DE LOCAÇÃO",
+    "01.01.01.002": "RECEITAS ADICIONAIS",
+    "01.01.01.003": "RECEITAS ADICIONAIS",
+    "01.01.01.004": "RECEITAS ADICIONAIS",
+    "01.01.01.005": "RECEITAS ADICIONAIS",
+    "01.01.01.006": "RECEITAS ADICIONAIS",
+    "01.01.01.007": "FROTA INVESTIDORES",
+    "01.01.02.001": "REEMBOLSOS",
+    "01.01.02.002": "REEMBOLSOS",
+    "01.01.02.004": "REEMBOLSOS",
+    "01.01.02.005": "REEMBOLSOS",
+    "01.01.02.006": "REEMBOLSOS",
+    "01.01.02.008": "DEDUÇÕES",
+    "01.01.02.009": "FROTA INVESTIDORES",
+    "01.01.02.010": "FROTA INVESTIDORES",
+    "01.01.02.011": "FROTA INVESTIDORES",
+    "01.02.01.002": "RESULTADO NÃO OPERACIONAL",
+    "01.02.01.003": "RESULTADO NÃO OPERACIONAL",
+    "01.02.01.004": "VENDA DE VEÍCULOS",
+    "02.01.01.005": "DEDUÇÕES",
+    "02.01.01.006": "DEDUÇÕES",
+    "02.02.01.001": "CUSTOS DIRETOS DA FROTA",
+    "02.02.01.002": "CUSTOS DIRETOS DA FROTA",
+    "02.02.01.003": "CUSTOS DIRETOS DA FROTA",
+    "02.02.01.005": "CUSTOS DIRETOS DA FROTA",
+    "02.02.01.006": "CUSTOS DIRETOS DA FROTA",
+    "02.02.01.007": "CUSTOS DIRETOS DA FROTA",
+    "02.02.01.008": "CUSTOS DIRETOS DA FROTA",
+    "02.02.01.009": "CUSTOS DIRETOS DA FROTA",
+    "02.02.01.010": "CUSTOS DIRETOS DA FROTA",
+    "02.02.02.001": "CUSTOS DIRETOS DA FROTA",
+    "02.02.03.001": "CUSTOS DIRETOS DA FROTA",
+    "02.02.03.004": "CUSTOS DIRETOS DA FROTA",
+    "02.02.03.005": "CUSTOS DIRETOS DA FROTA",
+    "02.02.04.003": "CUSTOS DIRETOS DA FROTA",
+    "02.02.04.004": "CUSTOS DIRETOS DA FROTA",
+    "02.02.04.005": "CUSTOS DIRETOS DA FROTA",
+    "02.02.04.006": "CUSTOS DIRETOS DA FROTA",
+    "02.02.05.001": "CUSTOS OPERACIONAIS",
+    "02.02.05.002": "CUSTOS OPERACIONAIS",
+    "02.02.05.006": "CUSTOS OPERACIONAIS",
+    "02.02.05.007": "CUSTOS OPERACIONAIS",
+    "02.02.05.008": "CUSTOS OPERACIONAIS",
+    "02.02.05.009": "CUSTOS OPERACIONAIS",
+    "02.02.05.010": "CUSTOS OPERACIONAIS",
+    "02.02.06.001": "CUSTOS DIRETOS DA FROTA",
+    "02.02.06.002": "CUSTOS DIRETOS DA FROTA",
+    "02.02.06.006": "CUSTOS DIRETOS DA FROTA",
+    "02.02.06.010": "CUSTOS DIRETOS DA FROTA",
+    "02.02.07.01": "FROTA INVESTIDORES",
+    "02.02.07.03": "FROTA INVESTIDORES",
+    "02.02.07.04": "FROTA INVESTIDORES",
+    "02.03.01.001": "ADMINISTRATIVAS",
+    "02.03.01.002": "ADMINISTRATIVAS",
+    "02.03.01.003": "ADMINISTRATIVAS",
+    "02.03.01.004": "ADMINISTRATIVAS",
+    "02.03.01.005": "ADMINISTRATIVAS",
+    "02.03.01.006": "ADMINISTRATIVAS",
+    "02.03.01.007": "ADMINISTRATIVAS",
+    "02.03.02.001": "ADMINISTRATIVAS",
+    "02.03.02.003": "ADMINISTRATIVAS",
+    "02.03.02.005": "ADMINISTRATIVAS",
+    "02.03.02.006": "ADMINISTRATIVAS",
+    "02.03.02.007": "ADMINISTRATIVAS",
+    "02.03.02.008": "ADMINISTRATIVAS",
+    "02.03.03.001": "ADMINISTRATIVAS",
+    "02.03.03.002": "ADMINISTRATIVAS",
+    "02.03.04.001": "ADMINISTRATIVAS",
+    "02.03.04.002": "ADMINISTRATIVAS",
+    "02.04.01.001": "COMERCIAIS",
+    "02.04.02.001": "ADMINISTRATIVAS",
+    "02.04.02.003": "ADMINISTRATIVAS",
+    "02.04.02.004": "ADMINISTRATIVAS",
+    "02.04.02.005": "ADMINISTRATIVAS",
+    "02.04.02.006": "ADMINISTRATIVAS",
+    "02.04.03.001": "ADMINISTRATIVAS",
+    "02.04.04.001": "ADMINISTRATIVAS",
+    "02.04.04.004": "ADMINISTRATIVAS",
+    "02.04.04.005": "ADMINISTRATIVAS",
+    "02.04.04.007": "ADMINISTRATIVAS",
+    "02.04.05.001": "ADMINISTRATIVAS",
+    "02.04.05.003": "TECNOLOGIA",
+    "02.04.05.004": "ADMINISTRATIVAS",
+    "02.04.05.006": "ADMINISTRATIVAS",
+    "02.04.05.007": "ADMINISTRATIVAS",
+    "02.04.05.008": "ADMINISTRATIVAS",
+    "02.04.05.009": "ADMINISTRATIVAS",
+    "02.04.06.001": "DESPESAS FINANCEIRAS",
+    "02.04.06.003": "DESPESAS FINANCEIRAS",
+    "02.04.06.005": "DESPESAS FINANCEIRAS",
+    "02.04.08.01": "CONSTRUÇÃO DA OFICINA",
+    "02.04.08.02": "CONSTRUÇÃO DA OFICINA",
+    "02.04.08.03": "CONSTRUÇÃO DA OFICINA",
+    "03.01.02.001": "COMPRA DE VEÍCULOS",
+    "03.01.02.002": "COMPRA DE VEÍCULOS",
+    "03.01.02.003": "COMPRA DE VEÍCULOS",
+    "03.01.03.001": "FINANCIAMENTOS VEICULARES",
+    "03.01.03.002": "DESPESAS FINANCEIRAS",
+    "03.01.03.003": "FINANCIAMENTOS VEICULARES",
+    "03.01.03.004": "DESPESAS FINANCEIRAS",
+    "03.01.03.005": "FINANCIAMENTOS VEICULARES",
+    "03.02.01.001": "OUTROS IMOBILIZADOS",
+    "03.02.01.002": "OUTROS IMOBILIZADOS",
+    "03.02.01.003": "OUTROS IMOBILIZADOS",
+    "03.02.01.004": "OUTROS IMOBILIZADOS",
+    "03.02.01.005": "OUTROS IMOBILIZADOS",
+    "03.03.01.001": "APLICAÇÃO FINANCEIRA",
+    "03.03.01.002": "APLICAÇÃO FINANCEIRA",
+    "03.03.01.003": "RECEITAS FINANCEIRAS",
+    "03.03.02.001": "RESULTADO NÃO OPERACIONAL",
+    "04.01.01.001": "ENTRADA DE MUTUOS",
+    "04.01.01.002": "CAUÇÕES DE CLIENTES",
+    "04.01.02.001": "SAÍDA DE MUTUOS",
+    "04.01.02.002": "DESPESAS FINANCEIRAS",
+    "04.01.02.003": "CAUÇÕES DE CLIENTES",
+    "04.04.01.003": "APORTE DE CAPITAL",
+}
+
+
+def _dre_categoria(codigo):
+    """Categoria de DRE de uma natureza; None quando não vinculada no ERP."""
+    return _DRE_CATEGORIA_POR_NATUREZA.get(str(codigo or "").strip())
+
+
 # Grupos de unidade para visualização do DRE.
 # Ativuz e AZ são analisadas sempre juntas; investidores ficam separados.
 _DRE_GRUPO_PADRAO = "ativuz_az"
@@ -3925,18 +4053,26 @@ def _dre_ler_lancamentos(filtro_tipo=None, grupo=_DRE_GRUPO_PADRAO):
                 nat_raw   = col(row, "natureza")
                 val_raw   = col(row, "valor alocado na natureza", "valor")
 
-                try:
-                    valor = float(str(val_raw).replace(",", ".").replace(" ", ""))
-                except Exception:
+                def _num(x):
+                    try:
+                        return float(str(x).replace(",", ".").replace(" ", ""))
+                    except Exception:
+                        return None
+
+                valor = _num(val_raw)
+                if valor is None:
+                    continue
+                if valor == 0:
+                    # Desconto concedido: o ERP zera o valor alocado e registra o
+                    # montante em "Descontos", rateado pelo percentual da natureza.
+                    desc = _num(col(row, "descontos")) or 0.0
+                    pct  = _num(col(row, "percentual alocado na natureza"))
+                    if desc and pct:
+                        valor = desc * pct
+                if valor == 0:
                     continue
 
                 cod, nat_label = _parse_natureza(nat_raw)
-
-                # Placas de investidores (TWS / TSW / QGO): excluir locação e caução
-                desc_up = descricao.upper()
-                if any(p in desc_up for p in ("TWS", "TSW", "QGO")):
-                    if cod.startswith("01.01.01") or cod.startswith("01.01.02.008"):
-                        continue
 
                 unidade = str(col(row, "unidade") or "").strip()
                 conta   = str(col(row, "conta") or "").strip()
