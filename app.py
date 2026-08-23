@@ -7050,7 +7050,9 @@ def _ad_receita_por_cliente(lancamentos, limite=10):
 @app.route("/benchmarking")
 def pagina_benchmarking():
     # Regime de caixa: é como a operação é acompanhada no dia a dia.
-    lancs = _dre_ler_lancamentos("pagamento", grupo=None)
+    # Só Ativuz + AZ: João Paulo Consórcios e Luz Divina são outras empresas e
+    # não entram nos indicadores da casa.
+    lancs = _dre_ler_lancamentos("pagamento", grupo=_DRE_GRUPO_PADRAO)
     meses = _ad_dre_mensal(lancs)
     disponiveis = sorted(meses)
 
