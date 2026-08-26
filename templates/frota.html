@@ -2294,14 +2294,14 @@ document.addEventListener('click', function(e) {
       });
     });
     /* Recalcula totais das transações já deduplicadas */
-    var SEMANA = 1200;
+    var CAUCAO = FROTA.caucao;
     var totais = {};
     transacoes.forEach(function(t) {
       if (!t.relevante) return;
       if (t.categoria === 'adesao') {
-        totais['caucao']         = (totais['caucao']         || 0) + Math.max(t.valor - SEMANA, 0);
+        totais['caucao']         = (totais['caucao']         || 0) + CAUCAO;
         totais['total_recebido'] = (totais['total_recebido'] || 0) + t.valor;
-        totais['aluguel']        = (totais['aluguel']        || 0) + SEMANA;
+        totais['aluguel']        = (totais['aluguel']        || 0) + Math.max(t.valor - CAUCAO, 0);
       } else if (t.categoria === 'caucao' || t.categoria === 'devolucao_caucao') {
         totais['caucao']         = (totais['caucao']         || 0) + t.valor;
         totais['total_recebido'] = (totais['total_recebido'] || 0) + t.valor;
@@ -2446,7 +2446,7 @@ document.addEventListener('click', function(e) {
   }
 
   function _renderMotoristas(transacoes) {
-    var SEMANA = 1200;
+    var CAUCAO = FROTA.caucao;
     var map = {};
     transacoes.forEach(function(t) {
       if (['aluguel','adesao','caucao','devolucao_caucao','devolucao_aluguel'].indexOf(t.categoria) < 0) return;
@@ -2456,8 +2456,8 @@ document.addEventListener('click', function(e) {
       if (t.categoria === 'devolucao_aluguel') { map[nome].aluguel += t.valor; return; }
       if (t.categoria === 'aluguel') { map[nome].aluguel += t.valor; }
       if (t.categoria === 'adesao')  {
-        map[nome].aluguel += SEMANA;                          // 1ª semana conta como aluguel
-        map[nome].caucao  += Math.max(t.valor - SEMANA, 0);  // restante é caução
+        map[nome].caucao  += CAUCAO;                          // caução do contrato
+        map[nome].aluguel += Math.max(t.valor - CAUCAO, 0);  // restante é a 1ª semana
       }
       if (t.categoria === 'caucao') { map[nome].caucao += t.valor; return; }
       /* Semanas = segundas distintas com recebimento (adesão inclusa) */
@@ -2594,12 +2594,13 @@ document.addEventListener('click', function(e) {
       var seg = _segundaDaSemana(t.data);
       if (seg) motorMap[nome].semanas[seg] = true;
     });
-    var SEMANA_V = 1200;
+    var CAUCAO_V = FROTA.caucao;
     var totAluguel = 0, totCaucao = 0, totSemanas = 0;
     var rowsMotoristas = Object.keys(motorMap).sort().map(function(nome) {
       var m = motorMap[nome];
-      var aluguel = m.aluguel + (m.adesao > 0 ? SEMANA_V : 0);
-      var caucao  = (m.adesao > 0 ? Math.max(m.adesao - SEMANA_V, 0) : 0) + m.caucao;
+      var nAdesoes = m.adesao > 0 ? 1 : 0;
+      var aluguel = m.aluguel + Math.max(m.adesao - CAUCAO_V * nAdesoes, 0);
+      var caucao  = CAUCAO_V * nAdesoes + m.caucao;
       var total   = aluguel + caucao;
       var nSem = Object.keys(m.semanas).length;
       totAluguel += aluguel; totCaucao += caucao; totSemanas += nSem;

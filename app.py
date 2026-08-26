@@ -267,9 +267,13 @@ _ASAAS_FATURAS_DEVOLVIDAS = {
 }
 
 
-def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancamento=""):
+def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancamento="", cfg=None):
     """Classifica uma linha do extrato (xlsx ou OFX) no formato usado pelo painel."""
     import re as _re
+
+    cfg = cfg or _frota_cfg()
+    # Adesão = caução + 1ª semana. O piso separa adesão de aluguel avulso.
+    piso_adesao = cfg["caucao"] + cfg["semana_minima"]
 
     desc_n = _asaas_norm(desc)
     abs_v  = abs(valor)
@@ -287,7 +291,7 @@ def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancament
     elif fatura in _ASAAS_FATURAS_CAUCAO:
         categoria = "caucao"
     elif "cobranca recebida" in desc_n:
-        categoria = "adesao" if abs_v >= 3000 else "aluguel"
+        categoria = "adesao" if abs_v >= piso_adesao else "aluguel"
     elif "luz divina" in desc_n:
         categoria = "repasse_investidor"
     elif "ativuz" in desc_n:
@@ -338,16 +342,18 @@ def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancament
     }
 
 
-def _asaas_totais(transacoes):
+def _asaas_totais(transacoes, cfg=None):
     """Totalizadores — apenas lançamentos relevantes."""
+    cfg = cfg or _frota_cfg()
+
     def _soma(cat):
         return sum(t["valor"] for t in transacoes if t["categoria"] == cat and t["relevante"])
 
-    # Adesão = caução (R$3.000) + 1ª semana (R$1.200)
-    _SEMANA_VALOR = 1200
+    # Adesão = caução (valor fixo do contrato) + 1ª semana (o que sobrar)
+    _CAUCAO  = cfg["caucao"]
     _adesoes = [t for t in transacoes if t["categoria"] == "adesao" and t["relevante"]]
-    caucao_total  = sum(max(t["valor"] - _SEMANA_VALOR, 0) for t in _adesoes)
-    semana_adesao = len(_adesoes) * _SEMANA_VALOR
+    caucao_total  = len(_adesoes) * _CAUCAO
+    semana_adesao = sum(max(t["valor"] - _CAUCAO, 0) for t in _adesoes)
 
     # Devoluções ao motorista (valores negativos) abatem o que ele havia pago
     return {
@@ -383,6 +389,8 @@ _FROTAS = {
         "investidor":      "LUZ DIVINA LTDA",
         "modelo":          "BYD DOLPHIN MINI",
         "valor_semanal":   1200.0,
+        "caucao":          3000.0,
+        "semana_minima":   1200.0,   # piso p/ separar adesão de aluguel avulso
         "cota_investidor": 0.85,    # Ativuz retém 15% de taxa de administração
         "aquisicao":       102000.0,
         "deprec_pct":      7.8,
@@ -406,6 +414,37 @@ _FROTAS = {
             "TSW-3I33": [("Manutenção",                 "2026-08-10", None)],   # sem prazo de retorno
         },
     },
+
+    "joao-paulo": {
+        "nome":            "João Paulo",
+        "investidor":      "JOÃO PAULO CONSÓRCIOS",
+        "modelo":          "",          # preenchido quando as placas entrarem na planilha da frota
+        "valor_semanal":   775.0,       # média das duas; o valor real é por veículo (veja "veiculos")
+        "caucao":          1200.0,
+        "semana_minima":   750.0,
+        "cota_investidor": 0.85,
+        "aquisicao":       65522.0,
+        "deprec_pct":      7.8,
+        "seguro_anual":    0.0,         # não informado
+        "seguro_parcelas": 1,
+        "km_ano":          0,           # não informado — trava o custo de óleo/filtro
+        "revisoes":        [],          # sem plano fechado de fábrica; ver manutencao_itens
+        "revisao_km":      0,
+        "veiculos": {
+            "STX-6G05": {"valor_semanal": 800.0},
+            "SSW-1A28": {"valor_semanal": 750.0},
+        },
+        # Manutenção montada por item, já que não há plano do fabricante.
+        # valor_ano  = custo anual fechado
+        # valor / km = custo por evento, repetido a cada N km (precisa de km_ano)
+        "manutencao_itens": [
+            {"label": "Pneus (4 × R$ 260, 1× ao ano)",              "valor_ano": 1040.0},
+            {"label": "Alinhamento e balanceamento (R$ 50, 4× ao ano)", "valor_ano": 200.0},
+            {"label": "Óleo e filtro (a cada 10.000 km)",           "valor": 0.0, "km": 10000},
+        ],
+        "ocupacao":     {},   # definida a partir do 1º recebimento de cada motorista no extrato
+        "indisponivel": {},
+    },
 }
 
 _FROTA_PADRAO = "luz-divina"
@@ -413,9 +452,11 @@ _FROTA_PADRAO = "luz-divina"
 # Valores usados quando a frota nova ainda não informou o parâmetro
 _FROTA_DEFAULTS = {
     "nome": "", "investidor": "", "modelo": "", "valor_semanal": 0.0,
+    "caucao": 3000.0, "semana_minima": 1200.0,
     "cota_investidor": 0.85, "aquisicao": 0.0, "deprec_pct": 7.8,
     "seguro_anual": 0.0, "seguro_parcelas": 1, "km_ano": 0,
-    "revisoes": [], "revisao_km": 20000, "ocupacao": {}, "indisponivel": {},
+    "revisoes": [], "revisao_km": 20000, "manutencao_itens": [],
+    "veiculos": {}, "ocupacao": {}, "indisponivel": {},
 }
 
 
@@ -430,15 +471,23 @@ def _frota_cfg(slug=None):
 def _frota_custo_anual(cfg):
     """Custo anual por veículo: revisão + seguro + IPVA + depreciação."""
     revisoes = cfg.get("revisoes") or []
-    manutencao = 0.0
+    manutencao, pendentes = 0.0, []
     if revisoes and cfg.get("revisao_km") and cfg.get("km_ano"):
         custo_km = sum(revisoes) / (len(revisoes) * cfg["revisao_km"])
         manutencao = custo_km * cfg["km_ano"]
+    for item in (cfg.get("manutencao_itens") or []):
+        if item.get("valor_ano"):
+            manutencao += item["valor_ano"]
+        elif item.get("km") and cfg.get("km_ano") and item.get("valor"):
+            manutencao += item["valor"] / item["km"] * cfg["km_ano"]
+        else:
+            pendentes.append(item.get("label", ""))
     deprec = cfg.get("aquisicao", 0) * (cfg.get("deprec_pct", 0) / 100)
     return {
         "manutencao":  round(manutencao, 2),
         "seguro":      round(cfg.get("seguro_anual", 0), 2),
         "depreciacao": round(deprec, 2),
+        "pendentes":   pendentes,   # itens sem valor/km — custo subestimado enquanto houver
     }
 
 
@@ -473,7 +522,7 @@ def _asaas_chave(t):
     return t.get("tx_id") or "{}|{}|{}".format(t.get("data"), t.get("descricao"), t.get("valor"))
 
 
-def _asaas_ler_xlsx(f):
+def _asaas_ler_xlsx(f, cfg=None):
     """Lê o extrato oficial do ASAAS em .xlsx. Retorna (dados, erro)."""
     import openpyxl
 
@@ -533,7 +582,7 @@ def _asaas_ler_xlsx(f):
         except (TypeError, ValueError):
             continue
 
-        transacoes.append(_asaas_montar_transacao(data, tx_id, tipo, estorn, desc, valor, lancam))
+        transacoes.append(_asaas_montar_transacao(data, tx_id, tipo, estorn, desc, valor, lancam, cfg))
 
     return {
         "periodo":       periodo,
@@ -543,7 +592,7 @@ def _asaas_ler_xlsx(f):
     }, None
 
 
-def _asaas_ler_ofx(f):
+def _asaas_ler_ofx(f, cfg=None):
     """Lê extrato bancário no formato OFX/QFX (SGML ou XML). Retorna (dados, erro)."""
     import re as _re
 
@@ -586,7 +635,7 @@ def _asaas_ler_ofx(f):
         if not data or not desc:
             continue
         transacoes.append(_asaas_montar_transacao(
-            data, _tag(bloco, "FITID"), _tag(bloco, "TRNTYPE"), "", desc, valor))
+            data, _tag(bloco, "FITID"), _tag(bloco, "TRNTYPE"), "", desc, valor, "", cfg))
 
     if not transacoes:
         return None, "Nenhum lançamento válido encontrado no arquivo OFX"
@@ -619,11 +668,12 @@ def api_asaas_parse():
     if not f:
         return jsonify({"erro": "Nenhum arquivo enviado"}), 400
 
+    cfg  = _frota_cfg(request.args.get("frota") or request.form.get("frota"))
     nome = (f.filename or "").lower()
     if nome.endswith((".ofx", ".qfx")):
-        dados, erro = _asaas_ler_ofx(f)
+        dados, erro = _asaas_ler_ofx(f, cfg)
     elif nome.endswith((".xlsx", ".xlsm")):
-        dados, erro = _asaas_ler_xlsx(f)
+        dados, erro = _asaas_ler_xlsx(f, cfg)
     else:
         return jsonify({"erro": "Formato não suportado — envie o extrato em .xlsx ou .ofx"}), 400
 
@@ -639,7 +689,7 @@ def api_asaas_parse():
         vistas.add(k)
         unicas.append(t)
     dados["transacoes"] = unicas
-    dados["totais"] = _asaas_totais(unicas)
+    dados["totais"] = _asaas_totais(unicas, cfg)
 
     return jsonify(dados)
 
@@ -680,7 +730,7 @@ def api_asaas_salvar():
         "periodo":       dados.get("periodo", ""),
         "saldo_inicial": dados.get("saldo_inicial"),
         "saldo_final":   dados.get("saldo_final"),
-        "totais":        _asaas_totais(novas),
+        "totais":        _asaas_totais(novas, cfg),
         "transacoes":    novas,
     }
     if _ASAAS_TEM_COLUNA_FROTA:
@@ -703,7 +753,7 @@ def api_asaas_extratos():
             "periodo":      row.get("periodo", ""),
             "saldo_inicial": row.get("saldo_inicial"),
             "saldo_final":  row.get("saldo_final"),
-            "totais":       _asaas_totais(txs),
+            "totais":       _asaas_totais(txs, cfg),
             "transacoes":   txs,
         })
     return jsonify(extratos)
@@ -747,7 +797,6 @@ def api_rentabilidade_real():
     """
     from datetime import timedelta
     cfg = _frota_cfg(request.args.get("frota"))
-    _SEMANA_VALOR = cfg["valor_semanal"] or 1200
 
     # 1) Recebimentos por (motorista, segunda-feira)
     sb = _supabase()
@@ -775,7 +824,7 @@ def api_rentabilidade_real():
             continue
         seg   = d - timedelta(days=d.weekday())
         # Na adesão só a 1ª semana é aluguel; o restante é caução
-        valor = _SEMANA_VALOR if t["categoria"] == "adesao" else t["valor"]   # devolução entra negativa
+        valor = max(t["valor"] - cfg["caucao"], 0) if t["categoria"] == "adesao" else t["valor"]
         nome  = (t.get("motorista") or "").upper()
         por_motorista.setdefault(nome, {})
         por_motorista[nome][seg] = por_motorista[nome].get(seg, 0) + valor
