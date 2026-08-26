@@ -1895,9 +1895,23 @@ var IPVA_PARCELAS     = 7;
 var LICENCIAMENTO     = 90;
 var TAXA_BOMBEIROS    = 24;
 
+/* Plano de revisão oficial BYD — Dolphin Mini (Todos), preços sugeridos BYD/SP.
+   Revisão a cada 20.000 km ou 12 meses, o que ocorrer primeiro. */
+var BYD_REVISOES    = [361, 1225, 361, 1225, 684, 1225, 361, 1225, 361, 1548];
+var BYD_REVISAO_KM  = 20000;
+var KM_ANO          = 72000;   // ~1.385 km/semana por motorista de aplicativo
+
+/* Custo de revisão por km = ciclo completo do plano ÷ km do ciclo */
+function custoRevisaoKm() {
+  var ciclo = BYD_REVISOES.reduce(function(a, b) { return a + b; }, 0);
+  return ciclo / (BYD_REVISOES.length * BYD_REVISAO_KM);
+}
+
+function manutencaoAnual() { return custoRevisaoKm() * KM_ANO; }
+
 function getParams() {
   var fipe = fipeBYD();
-  var base = { aquisicao: 102000, manutencao: 3096 / 12, seguro_total: 5100, depreciacao_pct: 7.8 };
+  var base = { aquisicao: 102000, manutencao: manutencaoAnual() / 12, seguro_total: 5100, depreciacao_pct: 7.8 };
   var ipva_total = fipe * IPVA_PCT + LICENCIAMENTO + TAXA_BOMBEIROS;
 
   var d = window._asaasDados;
@@ -2035,7 +2049,7 @@ function renderComparacao(data) {
       '<div class="inv-row"><span class="inv-row-lbl">Renda bruta mensal</span><span class="inv-row-val">R$ ' + brl(c.inv_mes) + '</span></div>' +
       '<div class="inv-row"><span class="inv-row-lbl">Seguro mensal (R$ ' + brl(params.seguro_total) + '/ano ÷ 12)</span><span class="inv-row-val red">− R$ ' + brl(c.seguro_mes) + '</span></div>' +
       '<div class="inv-row"><span class="inv-row-lbl">IPVA mensal (1% FIPE R$ ' + brl(params.fipe) + ' + licenciamento R$ 90 + bombeiros R$ 24 = R$ ' + brl(params.ipva_total) + '/ano em ' + IPVA_PARCELAS + 'x)</span><span class="inv-row-val red">− R$ ' + brl(c.ipva_mes) + '</span></div>' +
-      (params.manutencao > 0 ? '<div class="inv-row"><span class="inv-row-lbl">Manutenção mensal</span><span class="inv-row-val red">− R$ ' + brl(params.manutencao) + '</span></div>' : '') +
+      (params.manutencao > 0 ? '<div class="inv-row"><span class="inv-row-lbl">Manutenção mensal (plano BYD R$ ' + custoRevisaoKm().toFixed(4).replace('.', ',') + '/km × ' + (KM_ANO/1000) + ' mil km/ano = R$ ' + brl(params.manutencao * 12) + '/ano)</span><span class="inv-row-val red">− R$ ' + brl(params.manutencao) + '</span></div>' : '') +
       '<div class="inv-row"><span class="inv-row-lbl">Depreciação mensal (' + params.depreciacao_pct + '% a.a.)</span><span class="inv-row-val red">− R$ ' + brl(c.depreciacao_mes) + '</span></div>' +
       '<div class="inv-row"><span class="inv-row-lbl">Renda líquida mensal</span><span class="inv-row-val green">R$ ' + brl(c.liq_mes) + '</span></div>' +
       '<div class="inv-row"><span class="inv-row-lbl">Margem líquida</span><span class="inv-row-val purple">' + c.margem_liq.toFixed(1) + '%</span></div>' +
