@@ -1908,6 +1908,7 @@ var IPVA_PARCELAS     = 7;
 var LICENCIAMENTO     = 90;
 var TAXA_BOMBEIROS    = 24;
 var COTA_INVESTIDOR   = FROTA.cota_investidor;
+var PROVISAO_PCT      = FROTA.provisao_pct || 0;   // reserva p/ peças eventuais
 
 /* Plano de revisão oficial BYD — Dolphin Mini (Todos), preços sugeridos BYD/SP.
    Revisão a cada 20.000 km ou 12 meses, o que ocorrer primeiro. */
@@ -1958,20 +1959,23 @@ function calcMetrics(valor_semanal, params) {
   var ipva_mes          = params.ipva_total / 12;
   var depreciacao_anual = params.aquisicao * ((params.depreciacao_pct || 0) / 100);
   var depreciacao_mes   = depreciacao_anual / 12;
-  var descontos         = params.manutencao + seguro_mes + ipva_mes + depreciacao_mes;
+  var provisao_anual    = valor_semanal * SEMANAS_ANO * (PROVISAO_PCT / 100);
+  var provisao_mes      = provisao_anual / 12;
+  var descontos         = params.manutencao + seguro_mes + ipva_mes + depreciacao_mes + provisao_mes;
   var liq_mes           = inv_mes - descontos;
   var yield_aa          = liq_mes > 0 ? (liq_mes * 12 / params.aquisicao * 100) : 0;
   var yield_sem_deprec  = (liq_mes + depreciacao_mes) * 12 / params.aquisicao * 100;
   var retorno_real_aa   = yield_aa;
   var payback           = liq_mes > 0 ? (params.aquisicao / liq_mes) : Infinity;
   var margem_liq        = inv_mes > 0 ? (liq_mes / inv_mes * 100) : 0;
-  var custo_anual       = params.manutencao * 12 + params.seguro_total + params.ipva_total + depreciacao_anual;
+  var custo_anual       = params.manutencao * 12 + params.seguro_total + params.ipva_total + depreciacao_anual + provisao_anual;
   var sem_equilibrio    = custo_anual > 0 && valor_semanal > 0 ? custo_anual / (valor_semanal * COTA_INVESTIDOR) : 0;
   var pct_ocupacao      = sem_equilibrio / 52 * 100;
   var acum_ano1         = liq_mes * 12;
   var acum_ano2         = liq_mes * 24;
   var acum_ano3         = liq_mes * 36;
-  return { inv_sem: inv_sem, inv_mes: inv_mes, seguro_mes: seguro_mes, ipva_mes: ipva_mes, descontos: descontos, liq_mes: liq_mes,
+  return { inv_sem: inv_sem, inv_mes: inv_mes, seguro_mes: seguro_mes, ipva_mes: ipva_mes,
+           provisao_mes: provisao_mes, provisao_anual: provisao_anual, descontos: descontos, liq_mes: liq_mes,
            yield_aa: yield_aa, yield_sem_deprec: yield_sem_deprec, payback: payback, margem_liq: margem_liq,
            depreciacao_anual: depreciacao_anual, depreciacao_mes: depreciacao_mes, retorno_real_aa: retorno_real_aa,
            sem_equilibrio: sem_equilibrio, pct_ocupacao: pct_ocupacao,
@@ -2065,6 +2069,7 @@ function renderComparacao(data) {
       '<div class="inv-row"><span class="inv-row-lbl">Renda bruta mensal</span><span class="inv-row-val">R$ ' + brl(c.inv_mes) + '</span></div>' +
       '<div class="inv-row"><span class="inv-row-lbl">Seguro mensal (R$ ' + brl(params.seguro_total) + '/ano ÷ 12)</span><span class="inv-row-val red">− R$ ' + brl(c.seguro_mes) + '</span></div>' +
       '<div class="inv-row"><span class="inv-row-lbl">IPVA mensal (1% FIPE R$ ' + brl(params.fipe) + ' + licenciamento R$ 90 + bombeiros R$ 24 = R$ ' + brl(params.ipva_total) + '/ano em ' + IPVA_PARCELAS + 'x)</span><span class="inv-row-val red">− R$ ' + brl(c.ipva_mes) + '</span></div>' +
+      (PROVISAO_PCT > 0 ? '<div class="inv-row"><span class="inv-row-lbl">Provisão peças (' + PROVISAO_PCT + '% da receita bruta)</span><span class="inv-row-val red">− R$ ' + brl(c.provisao_mes) + '</span></div>' : '') +
       (params.manutencao > 0 ? '<div class="inv-row"><span class="inv-row-lbl">Manutenção mensal (plano BYD R$ ' + custoRevisaoKm().toFixed(4).replace('.', ',') + '/km × ' + (KM_ANO/1000) + ' mil km/ano = R$ ' + brl(params.manutencao * 12) + '/ano)</span><span class="inv-row-val red">− R$ ' + brl(params.manutencao) + '</span></div>' : '') +
       '<div class="inv-row"><span class="inv-row-lbl">Depreciação mensal (' + params.depreciacao_pct + '% a.a.)</span><span class="inv-row-val red">− R$ ' + brl(c.depreciacao_mes) + '</span></div>' +
       '<div class="inv-row"><span class="inv-row-lbl">Renda líquida mensal</span><span class="inv-row-val green">R$ ' + brl(c.liq_mes) + '</span></div>' +
@@ -2216,7 +2221,7 @@ window.abrirModalRentReal = function() {
     '<div class="rent-formula">' +
     'Yield l\u00edquido = ( Recebido investidor \u00f7 Semanas ativas \u00d7 52  \u2212  Custos anuais ) \u00f7 Aquisi\u00e7\u00e3o \u00d7 100\n' +
     'Recebido investidor = alugu\u00e9is reais pagos no ASAAS pelo motorista que ocupava o ve\u00edculo \u00d7 85% (cau\u00e7\u00f5es fora)\n' +
-    'Custos anuais = Revis\u00e3o (R$ ' + brl(params.manutencao * 12) + ')  +  Seguro (R$ ' + brl(params.seguro_total) + ')  +  IPVA (R$ ' + brl(params.ipva_total) + ')  +  Deprecia\u00e7\u00e3o (R$ ' + brl(c.depreciacao_anual) + ')  =  R$ ' + brl(c.custo_anual) +
+    'Custos anuais = Revis\u00e3o (R$ ' + brl(params.manutencao * 12) + ')' + (PROVISAO_PCT ? '  +  Provis\u00e3o pe\u00e7as (R$ ' + brl(c.provisao_anual) + ')' : '') + '  +  Seguro (R$ ' + brl(params.seguro_total) + ')  +  IPVA (R$ ' + brl(params.ipva_total) + ')  +  Deprecia\u00e7\u00e3o (R$ ' + brl(c.depreciacao_anual) + ')  =  R$ ' + brl(c.custo_anual) +
     '</div>' +
     (rows
       ? '<div style="overflow-x:auto"><table>' +

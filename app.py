@@ -440,8 +440,10 @@ _FROTAS = {
         "manutencao_itens": [
             {"label": "Pneus (4 × R$ 260, 1× ao ano)",              "valor_ano": 1040.0},
             {"label": "Alinhamento e balanceamento (R$ 50, 4× ao ano)", "valor_ano": 200.0},
-            {"label": "Óleo e filtro (a cada 10.000 km)",           "valor": 0.0, "km": 10000},
+            {"label": "Óleo e filtro (a cada 10.000 km)",           "valor": 147.45, "km": 10000},
         ],
+        # Peças eventuais não são orçáveis item a item — reserva de 5% da receita bruta
+        "provisao_pct": 5.0,
         "ocupacao":     {},   # definida a partir do 1º recebimento de cada motorista no extrato
         "indisponivel": {},
     },
@@ -455,7 +457,7 @@ _FROTA_DEFAULTS = {
     "caucao": 3000.0, "semana_minima": 1200.0,
     "cota_investidor": 0.85, "aquisicao": 0.0, "deprec_pct": 7.8,
     "seguro_anual": 0.0, "seguro_parcelas": 1, "km_ano": 0,
-    "revisoes": [], "revisao_km": 20000, "manutencao_itens": [],
+    "revisoes": [], "revisao_km": 20000, "manutencao_itens": [], "provisao_pct": 0.0,
     "veiculos": {}, "ocupacao": {}, "indisponivel": {},
 }
 
@@ -487,6 +489,7 @@ def _frota_custo_anual(cfg):
         "manutencao":  round(manutencao, 2),
         "seguro":      round(cfg.get("seguro_anual", 0), 2),
         "depreciacao": round(deprec, 2),
+        "provisao_pct": cfg.get("provisao_pct", 0.0),
         "pendentes":   pendentes,   # itens sem valor/km — custo subestimado enquanto houver
     }
 
