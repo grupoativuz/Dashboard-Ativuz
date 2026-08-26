@@ -350,6 +350,21 @@ def _asaas_totais(transacoes):
     }
 
 
+# Histórico de ocupação: qual motorista estava em cada veículo em cada período.
+# (motorista, primeira segunda ocupada, última segunda ocupada — None = até hoje)
+_FROTA_OCUPACAO = {
+    "TSW-3H63": [("JACKSON CASSIANO VERISSIMO",           "2026-04-27", None)],
+    "TSW-3H91": [("TANIELLE GLAUCIANA SOUZA DA SILVA",    "2026-05-11", "2026-08-03"),
+                 ("JOSE PEREIRA JUNIOR",                  "2026-08-24", None)],
+    "TSW-3I33": [("MARCIANO EZEQUIEL VALDEVINO DA SILVA", "2026-05-11", "2026-08-03")],
+    "TSW-3I03": [("ADRIANO TEOTONIO DA SILVA",            "2026-05-04", "2026-06-01"),
+                 ("MARCIANO EZEQUIEL VALDEVINO DA SILVA", "2026-08-10", None)],
+}
+
+# Fatia do aluguel que fica com o investidor (Ativuz retém a taxa de administração)
+_FROTA_COTA_INVESTIDOR = 0.85
+
+
 def _asaas_reclassificar(transacoes):
     """Reaplica as regras de motorista/caução em lançamentos já salvos."""
     import re as _re
@@ -604,6 +619,84 @@ def api_asaas_extratos():
             "transacoes":   txs,
         })
     return jsonify(extratos)
+
+
+@app.route("/api/rentabilidade-real")
+def api_rentabilidade_real():
+    """
+    Rentabilidade por veículo com dinheiro real do ASAAS.
+
+    Cruza os recebimentos por motorista (extratos ASAAS) com o histórico de
+    ocupação (_FROTA_OCUPACAO): cada semana de aluguel é atribuída ao veículo
+    que o motorista ocupava naquela segunda-feira. Cauções ficam de fora —
+    são garantia, não receita do investidor.
+    """
+    from datetime import timedelta
+    _SEMANA_VALOR = 1200
+
+    # 1) Recebimentos por (motorista, segunda-feira)
+    sb = _supabase()
+    transacoes, vistas = [], set()
+    if sb:
+        try:
+            res = sb.table("asaas_extratos").select("transacoes").order("created_at").execute()
+            for row in (res.data or []):
+                for t in _asaas_reclassificar(row.get("transacoes") or []):
+                    k = _asaas_chave(t)
+                    if k in vistas:
+                        continue
+                    vistas.add(k)
+                    transacoes.append(t)
+        except Exception:
+            pass
+
+    por_motorista = {}   # nome maiúsculo -> {segunda(date): valor de aluguel}
+    for t in transacoes:
+        if t.get("categoria") not in ("aluguel", "adesao") or not t.get("relevante", True):
+            continue
+        try:
+            d = datetime.strptime(t["data"], "%d/%m/%Y").date()
+        except (ValueError, KeyError):
+            continue
+        seg   = d - timedelta(days=d.weekday())
+        # Na adesão só a 1ª semana é aluguel; o restante é caução
+        valor = _SEMANA_VALOR if t["categoria"] == "adesao" else t["valor"]
+        nome  = (t.get("motorista") or "").upper()
+        por_motorista.setdefault(nome, {})
+        por_motorista[nome][seg] = por_motorista[nome].get(seg, 0) + valor
+
+    # 2) Atribui cada semana ao veículo ocupado
+    modelos = {v["placa"].upper(): v.get("modelo", "") for v in (_ler_sob_administracao()[0] or [])}
+    hoje    = date.today()
+    veiculos = []
+
+    for placa, periodos in _FROTA_OCUPACAO.items():
+        semanas, recebido, ocupantes = 0, 0.0, []
+        for nome, de, ate in periodos:
+            d_ini = datetime.strptime(de, "%Y-%m-%d").date()
+            d_fim = datetime.strptime(ate, "%Y-%m-%d").date() if ate else hoje
+            d_fim = min(d_fim, hoje)
+            if d_fim < d_ini:
+                continue
+            pagos = por_motorista.get(nome.upper(), {})
+            cur = d_ini
+            while cur <= d_fim:
+                semanas += 1
+                recebido += pagos.get(cur, 0)
+                cur += timedelta(weeks=1)
+            ocupantes.append({"motorista": nome, "de": de, "ate": ate})
+
+        veiculos.append({
+            "placa":              placa,
+            "modelo":             modelos.get(placa, ""),
+            "semanas_ativas":     semanas,
+            "recebido_total":     round(recebido, 2),
+            "recebido_investidor": round(recebido * _FROTA_COTA_INVESTIDOR, 2),
+            "ocupantes":          ocupantes,
+        })
+
+    veiculos.sort(key=lambda v: v["placa"])
+    return jsonify({"ok": True, "veiculos": veiculos})
 
 
 @app.route("/api/asaas-extratos/<extrato_id>", methods=["DELETE"])

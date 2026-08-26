@@ -1935,15 +1935,12 @@ window.renderExecSummary = function renderExecSummary() {
   /* ── Média real de rentabilidade líquida ── */
   var mediaRealPct = null;
   var mediaRealN   = 0;
-  var data = window._getAdmData ? window._getAdmData() : null;
-  if (data && data.length) {
+  var frota = window._rentRealData || [];
+  if (frota.length) {
     var yields = [];
-    data.forEach(function(v) {
-      if ((v.modelo || '').toUpperCase().indexOf('POLO') >= 0) return;
-      var passadas = (v.semanas || []).filter(function(s){ return s.passada; });
-      if (passadas.length === 0) return;
-      var inv_rec = v.recebido_total * (85 / 15);
-      var bruto_anual = inv_rec / passadas.length * 52;
+    frota.forEach(function(v) {
+      if (!v.semanas_ativas) return;
+      var bruto_anual = v.recebido_investidor / v.semanas_ativas * 52;
       var liq_anual   = bruto_anual - c.custo_anual;
       yields.push(liq_anual / params.aquisicao * 100);
     });
@@ -2123,7 +2120,7 @@ window.invRenderAll = function() {
 window.abrirModalRentReal = function() {
   var params  = getParams();
   var c       = calcMetrics(1200, params);
-  var data    = window._getAdmData ? window._getAdmData() : null;
+  var frota   = window._rentRealData || [];
   var modal   = document.getElementById('modal-rent-real');
   var content = document.getElementById('modal-rent-body');
   if (!modal || !content) return;
@@ -2131,50 +2128,59 @@ window.abrirModalRentReal = function() {
   var rows = '';
   var yields = [];
 
-  if (data && data.length) {
-    data.forEach(function(v) {
-      if ((v.modelo || '').toUpperCase().indexOf('POLO') >= 0) return;
-      var passadas = (v.semanas || []).filter(function(s){ return s.passada; });
-      if (passadas.length === 0) return;
-      var inv_rec      = v.recebido_total * (85 / 15);
-      var bruto_anual  = inv_rec / passadas.length * 52;
-      var liq_anual    = bruto_anual - c.custo_anual;
-      var yield_liq    = liq_anual / params.aquisicao * 100;
-      yields.push(yield_liq);
-      var cls = yield_liq >= 0 ? 'td-green' : 'td-red';
-      rows +=
-        '<tr>' +
-        '<td><strong>' + (v.placa || '—') + '</strong></td>' +
-        '<td>' + (v.modelo || '—') + '</td>' +
-        '<td class="td-num">' + passadas.length + '</td>' +
-        '<td class="td-num">R$ ' + brl(inv_rec) + '</td>' +
-        '<td class="td-num">R$ ' + brl(bruto_anual) + '</td>' +
-        '<td class="td-num">− R$ ' + brl(c.custo_anual) + '</td>' +
-        '<td class="td-num ' + cls + '">' + yield_liq.toFixed(1) + '%</td>' +
-        '</tr>';
-    });
-  }
+  frota.forEach(function(v) {
+    if (!v.semanas_ativas) return;
+    var bruto_anual = v.recebido_investidor / v.semanas_ativas * 52;
+    var liq_anual   = bruto_anual - c.custo_anual;
+    var yield_liq   = liq_anual / params.aquisicao * 100;
+    yields.push(yield_liq);
+    var cls = yield_liq >= 0 ? 'td-green' : 'td-red';
+    var ocup = (v.ocupantes || []).map(function(o) {
+      var ini = o.de.split('-').reverse().slice(0,2).join('/');
+      return o.motorista.split(' ')[0] + ' (' + ini + (o.ate ? '–' + o.ate.split('-').reverse().slice(0,2).join('/') : '→') + ')';
+    }).join(', ');
+    rows +=
+      '<tr>' +
+      '<td><strong>' + (v.placa || '—') + '</strong><br><span style="font-size:10.5px;color:var(--ink-3);">' + ocup + '</span></td>' +
+      '<td>' + (v.modelo || '—') + '</td>' +
+      '<td class="td-num">' + v.semanas_ativas + '</td>' +
+      '<td class="td-num">R$ ' + brl(v.recebido_investidor) + '</td>' +
+      '<td class="td-num">R$ ' + brl(bruto_anual) + '</td>' +
+      '<td class="td-num">\u2212 R$ ' + brl(c.custo_anual) + '</td>' +
+      '<td class="td-num ' + cls + '">' + yield_liq.toFixed(1) + '%</td>' +
+      '</tr>';
+  });
 
   var media = yields.length ? yields.reduce(function(a,b){return a+b;},0) / yields.length : null;
 
   content.innerHTML =
     '<div class="rent-formula">' +
-    'Yield líquido = ( Recebido investidor ÷ Semanas ativas × 52  −  Custos anuais ) ÷ Aquisição × 100\n' +
-    'Custos anuais = Revisão (R$ ' + brl(params.manutencao * 12) + ')  +  IPVA (R$ ' + brl(params.ipva_total) + ')  +  Depreciação (R$ ' + brl(c.depreciacao_anual) + ')  =  R$ ' + brl(c.custo_anual) +
+    'Yield l\u00edquido = ( Recebido investidor \u00f7 Semanas ativas \u00d7 52  \u2212  Custos anuais ) \u00f7 Aquisi\u00e7\u00e3o \u00d7 100\n' +
+    'Recebido investidor = alugu\u00e9is reais pagos no ASAAS pelo motorista que ocupava o ve\u00edculo \u00d7 85% (cau\u00e7\u00f5es fora)\n' +
+    'Custos anuais = Revis\u00e3o (R$ ' + brl(params.manutencao * 12) + ')  +  IPVA (R$ ' + brl(params.ipva_total) + ')  +  Deprecia\u00e7\u00e3o (R$ ' + brl(c.depreciacao_anual) + ')  =  R$ ' + brl(c.custo_anual) +
     '</div>' +
     (rows
       ? '<div style="overflow-x:auto"><table>' +
-        '<thead><tr><th>Placa</th><th>Modelo</th><th>Sem. ativas</th><th>Rec. investidor</th><th>Bruto anual</th><th>Custos anuais</th><th>Yield líq.</th></tr></thead>' +
+        '<thead><tr><th>Placa / ocupa\u00e7\u00e3o</th><th>Modelo</th><th>Sem. ativas</th><th>Rec. investidor</th><th>Bruto anual</th><th>Custos anuais</th><th>Yield l\u00edq.</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
         '</table></div>' +
         '<div class="modal-total">' +
-        '<span>Média real · ' + yields.length + ' veículo' + (yields.length !== 1 ? 's' : '') + ' BYD</span>' +
-        '<strong>' + (media !== null ? media.toFixed(1) + '% a.a.' : '—') + '</strong>' +
+        '<span>M\u00e9dia real \u00b7 ' + yields.length + ' ve\u00edculo' + (yields.length !== 1 ? 's' : '') + ' BYD</span>' +
+        '<strong>' + (media !== null ? media.toFixed(1) + '% a.a.' : '\u2014') + '</strong>' +
         '</div>'
-      : '<p style="color:var(--ink-3);text-align:center;padding:24px 0;">Nenhum dado de recebimento disponível.</p>');
+      : '<p style="color:var(--ink-3);text-align:center;padding:24px 0;">Nenhum dado de recebimento dispon\u00edvel.</p>');
 
   modal.classList.add('open');
 };
+
+/* Carrega a rentabilidade real (ASAAS \u00d7 ocupa\u00e7\u00e3o) e re-renderiza o resumo */
+fetch('/api/rentabilidade-real')
+  .then(function(r) { return r.json(); })
+  .then(function(j) {
+    window._rentRealData = (j && j.ok) ? (j.veiculos || []) : [];
+    if (window.renderExecSummary) window.renderExecSummary();
+  })
+  .catch(function() { window._rentRealData = []; });
 
 document.addEventListener('click', function(e) {
   var modal = document.getElementById('modal-rent-real');
