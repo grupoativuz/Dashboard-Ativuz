@@ -735,7 +735,7 @@ a.fr-tab-btn { text-decoration: none; display: inline-block; line-height: normal
 
     <p class="inv-section">Comparação de Modelos</p>
     <div class="inv-bloco">
-      <div class="inv-bloco-title">Rentabilidade Estimada — BYD (elétrico) · aluguel semanal R$1.200 · 85% ao investidor · IPVA, manutenção e depreciação descontados</div>
+      <div class="inv-bloco-title">Rentabilidade Estimada — BYD (elétrico) · aluguel semanal R$1.200 · 85% ao investidor · seguro, IPVA, manutenção e depreciação descontados</div>
       <div class="inv-cards" id="inv-compare-cards">
         <div style="color:var(--ink-3);font-size:13px;padding:10px 0">Carregando dados...</div>
       </div>
@@ -1877,23 +1877,46 @@ function brl(v) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/* FIPE atual do BYD Dolphin Mini (média dos veículos do sistema) */
+function fipeBYD() {
+  var vals = [];
+  VEICULOS.forEach(function(v) {
+    if ((v.modelo || '').toUpperCase().indexOf('DOLPHIN') < 0) return;
+    var a = valorAtual(v);
+    if (a && a.val != null) vals.push(a.val);
+  });
+  if (!vals.length) return 114375;   // fallback: FIPE AGO/26
+  return vals.reduce(function(x, y) { return x + y; }, 0) / vals.length;
+}
+
+/* IPVA anual = 1% da FIPE (7 parcelas) + licenciamento + taxa de bombeiros */
+var IPVA_PCT          = 0.01;
+var IPVA_PARCELAS     = 7;
+var LICENCIAMENTO     = 90;
+var TAXA_BOMBEIROS    = 24;
+
 function getParams() {
-  var base = { aquisicao: 102000, manutencao: 3096 / 12, ipva_total: 5100, depreciacao_pct: 7.8 };
+  var fipe = fipeBYD();
+  var base = { aquisicao: 102000, manutencao: 3096 / 12, seguro_total: 5100, depreciacao_pct: 7.8 };
+  var ipva_total = fipe * IPVA_PCT + LICENCIAMENTO + TAXA_BOMBEIROS;
+
   var d = window._asaasDados;
-  if (!d || !d.totais) return base;
-
-  // Conta veículos pelo número de lançamentos de IPVA no extrato (1 por veículo)
-  var ipvaTx     = (d.transacoes || []).filter(function(t) { return t.categoria === 'ipva' && t.relevante; });
-  var n_veiculos = ipvaTx.length || 4;
-
-  // IPVA anualizado por veículo (parcelas 1/3 → ×3)
-  var ipva_pago  = Math.abs(d.totais.ipva || 0);
-  var ipva_real  = ipva_pago > 0 ? (ipva_pago * 3 / n_veiculos) : base.ipva_total;
+  var seguro_real = base.seguro_total;
+  if (d && d.totais) {
+    // Conta veículos pelo número de lançamentos de seguro no extrato (1 por veículo)
+    var seguroTx   = (d.transacoes || []).filter(function(t) { return t.categoria === 'ipva' && t.relevante; });
+    var n_veiculos = seguroTx.length || 4;
+    // Seguro anualizado por veículo (parcelas 1/3 → ×3)
+    var seguro_pago = Math.abs(d.totais.ipva || 0);
+    if (seguro_pago > 0) seguro_real = seguro_pago * 3 / n_veiculos;
+  }
 
   return {
     aquisicao:       base.aquisicao,
     manutencao:      base.manutencao,   // R$258/mês — fixo
-    ipva_total:      ipva_real,
+    fipe:            fipe,
+    seguro_total:    seguro_real,
+    ipva_total:      ipva_total,
     depreciacao_pct: base.depreciacao_pct,
   };
 }
@@ -1901,23 +1924,24 @@ function getParams() {
 function calcMetrics(valor_semanal, params) {
   var inv_sem           = valor_semanal * 0.85;
   var inv_mes           = inv_sem * (SEMANAS_ANO / 12);
+  var seguro_mes        = params.seguro_total / 12;
   var ipva_mes          = params.ipva_total / 12;
   var depreciacao_anual = params.aquisicao * ((params.depreciacao_pct || 0) / 100);
   var depreciacao_mes   = depreciacao_anual / 12;
-  var descontos         = params.manutencao + ipva_mes + depreciacao_mes;
+  var descontos         = params.manutencao + seguro_mes + ipva_mes + depreciacao_mes;
   var liq_mes           = inv_mes - descontos;
   var yield_aa          = liq_mes > 0 ? (liq_mes * 12 / params.aquisicao * 100) : 0;
   var yield_sem_deprec  = (liq_mes + depreciacao_mes) * 12 / params.aquisicao * 100;
   var retorno_real_aa   = yield_aa;
   var payback           = liq_mes > 0 ? (params.aquisicao / liq_mes) : Infinity;
   var margem_liq        = inv_mes > 0 ? (liq_mes / inv_mes * 100) : 0;
-  var custo_anual       = params.manutencao * 12 + params.ipva_total + depreciacao_anual;
+  var custo_anual       = params.manutencao * 12 + params.seguro_total + params.ipva_total + depreciacao_anual;
   var sem_equilibrio    = custo_anual > 0 && valor_semanal > 0 ? custo_anual / (valor_semanal * 0.85) : 0;
   var pct_ocupacao      = sem_equilibrio / 52 * 100;
   var acum_ano1         = liq_mes * 12;
   var acum_ano2         = liq_mes * 24;
   var acum_ano3         = liq_mes * 36;
-  return { inv_sem: inv_sem, inv_mes: inv_mes, ipva_mes: ipva_mes, descontos: descontos, liq_mes: liq_mes,
+  return { inv_sem: inv_sem, inv_mes: inv_mes, seguro_mes: seguro_mes, ipva_mes: ipva_mes, descontos: descontos, liq_mes: liq_mes,
            yield_aa: yield_aa, yield_sem_deprec: yield_sem_deprec, payback: payback, margem_liq: margem_liq,
            depreciacao_anual: depreciacao_anual, depreciacao_mes: depreciacao_mes, retorno_real_aa: retorno_real_aa,
            sem_equilibrio: sem_equilibrio, pct_ocupacao: pct_ocupacao,
@@ -1981,7 +2005,7 @@ window.renderExecSummary = function renderExecSummary() {
       '<div class="inv-exec-metric" data-tooltip="(Renda líquida + depreciação) × 12 ÷ aquisição&#10;(R$ ' + brl(c.liq_mes) + ' + R$ ' + brl(c.depreciacao_mes) + ') × 12 ÷ R$ ' + brl(params.aquisicao) + ' = ' + c.yield_sem_deprec.toFixed(1) + '%"><div class="inv-exec-metric-lbl">Yield líquido a.a.</div><div class="inv-exec-metric-val">' + c.yield_sem_deprec.toFixed(1) + '%</div><div class="inv-exec-metric-sub">por veículo BYD</div></div>' +
       '<div class="inv-exec-metric" data-tooltip="Renda líquida × 12 ÷ aquisição&#10;R$ ' + brl(c.liq_mes) + ' × 12 ÷ R$ ' + brl(params.aquisicao) + ' = ' + c.retorno_real_aa.toFixed(1) + '%"><div class="inv-exec-metric-lbl">Retorno real a.a.</div><div class="inv-exec-metric-val ' + (c.retorno_real_aa >= 0 ? '' : 'red') + '">' + c.retorno_real_aa.toFixed(1) + '%</div><div class="inv-exec-metric-sub">após depreciação de ' + params.depreciacao_pct + '% a.a.</div></div>' +
       '<div class="inv-exec-metric" data-tooltip="Renda líquida ÷ renda bruta mensal&#10;R$ ' + brl(c.liq_mes) + ' ÷ R$ ' + brl(c.inv_mes) + ' = ' + c.margem_liq.toFixed(1) + '%"><div class="inv-exec-metric-lbl">Margem Líquida</div><div class="inv-exec-metric-val">' + c.margem_liq.toFixed(1) + '%</div><div class="inv-exec-metric-sub">da renda bruta mensal</div></div>' +
-      '<div class="inv-exec-metric" data-tooltip="Renda bruta − IPVA − revisão − depreciação&#10;R$ ' + brl(c.inv_mes) + ' − R$ ' + brl(c.ipva_mes) + ' − R$ ' + brl(params.manutencao) + ' − R$ ' + brl(c.depreciacao_mes) + ' = R$ ' + brl(c.liq_mes) + '"><div class="inv-exec-metric-lbl">Renda líquida mensal</div><div class="inv-exec-metric-val">R$ ' + brl(c.liq_mes) + '</div><div class="inv-exec-metric-sub">após IPVA, revisão e depreciação</div></div>' +
+      '<div class="inv-exec-metric" data-tooltip="Renda bruta − seguro − IPVA − revisão − depreciação&#10;R$ ' + brl(c.inv_mes) + ' − R$ ' + brl(c.seguro_mes) + ' − R$ ' + brl(c.ipva_mes) + ' − R$ ' + brl(params.manutencao) + ' − R$ ' + brl(c.depreciacao_mes) + ' = R$ ' + brl(c.liq_mes) + '"><div class="inv-exec-metric-lbl">Renda líquida mensal</div><div class="inv-exec-metric-val">R$ ' + brl(c.liq_mes) + '</div><div class="inv-exec-metric-sub">após seguro, IPVA, revisão e depreciação</div></div>' +
       '<div class="inv-exec-metric" data-tooltip="Custo anual ÷ renda semanal ÷ 52 semanas&#10;R$ ' + brl(c.custo_anual) + ' ÷ R$ ' + brl(c.inv_sem) + ' ÷ 52 = ' + c.sem_equilibrio.toFixed(1) + ' sem. = ' + c.pct_ocupacao.toFixed(1) + '%"><div class="inv-exec-metric-lbl">Ocupação de equilíbrio</div><div class="inv-exec-metric-val">' + c.pct_ocupacao.toFixed(1) + '%</div><div class="inv-exec-metric-sub">' + c.sem_equilibrio.toFixed(1) + ' semanas/ano para cobrir custos</div></div>' +
       (mediaRealPct !== null
         ? '<div class="inv-exec-metric clickable" onclick="window.abrirModalRentReal()" title="Clique para ver o cálculo completo"><div class="inv-exec-metric-lbl">Rentabilidade líquida real</div><div class="inv-exec-metric-val ' + (mediaRealPct >= 0 ? '' : 'red') + '">' + mediaRealPct.toFixed(1) + '%</div><div class="inv-exec-metric-sub">média real · ' + mediaRealN + ' veículo' + (mediaRealN !== 1 ? 's' : '') + ' · clique p/ detalhes</div></div>'
@@ -2009,7 +2033,8 @@ function renderComparacao(data) {
       '<div class="inv-row"><span class="inv-row-lbl">Aluguel semanal</span><span class="inv-row-val">R$ ' + brl(m.valor_semanal) + '</span></div>' +
       '<div class="inv-row"><span class="inv-row-lbl">Renda bruta semanal (85%)</span><span class="inv-row-val">R$ ' + brl(c.inv_sem) + '</span></div>' +
       '<div class="inv-row"><span class="inv-row-lbl">Renda bruta mensal</span><span class="inv-row-val">R$ ' + brl(c.inv_mes) + '</span></div>' +
-      '<div class="inv-row"><span class="inv-row-lbl">IPVA mensal (R$ ' + brl(params.ipva_total) + '/ano ÷ 12)</span><span class="inv-row-val red">− R$ ' + brl(c.ipva_mes) + '</span></div>' +
+      '<div class="inv-row"><span class="inv-row-lbl">Seguro mensal (R$ ' + brl(params.seguro_total) + '/ano ÷ 12)</span><span class="inv-row-val red">− R$ ' + brl(c.seguro_mes) + '</span></div>' +
+      '<div class="inv-row"><span class="inv-row-lbl">IPVA mensal (1% FIPE R$ ' + brl(params.fipe) + ' + licenciamento R$ 90 + bombeiros R$ 24 = R$ ' + brl(params.ipva_total) + '/ano em ' + IPVA_PARCELAS + 'x)</span><span class="inv-row-val red">− R$ ' + brl(c.ipva_mes) + '</span></div>' +
       (params.manutencao > 0 ? '<div class="inv-row"><span class="inv-row-lbl">Manutenção mensal</span><span class="inv-row-val red">− R$ ' + brl(params.manutencao) + '</span></div>' : '') +
       '<div class="inv-row"><span class="inv-row-lbl">Depreciação mensal (' + params.depreciacao_pct + '% a.a.)</span><span class="inv-row-val red">− R$ ' + brl(c.depreciacao_mes) + '</span></div>' +
       '<div class="inv-row"><span class="inv-row-lbl">Renda líquida mensal</span><span class="inv-row-val green">R$ ' + brl(c.liq_mes) + '</span></div>' +
@@ -2161,7 +2186,7 @@ window.abrirModalRentReal = function() {
     '<div class="rent-formula">' +
     'Yield l\u00edquido = ( Recebido investidor \u00f7 Semanas ativas \u00d7 52  \u2212  Custos anuais ) \u00f7 Aquisi\u00e7\u00e3o \u00d7 100\n' +
     'Recebido investidor = alugu\u00e9is reais pagos no ASAAS pelo motorista que ocupava o ve\u00edculo \u00d7 85% (cau\u00e7\u00f5es fora)\n' +
-    'Custos anuais = Revis\u00e3o (R$ ' + brl(params.manutencao * 12) + ')  +  IPVA (R$ ' + brl(params.ipva_total) + ')  +  Deprecia\u00e7\u00e3o (R$ ' + brl(c.depreciacao_anual) + ')  =  R$ ' + brl(c.custo_anual) +
+    'Custos anuais = Revis\u00e3o (R$ ' + brl(params.manutencao * 12) + ')  +  Seguro (R$ ' + brl(params.seguro_total) + ')  +  IPVA (R$ ' + brl(params.ipva_total) + ')  +  Deprecia\u00e7\u00e3o (R$ ' + brl(c.depreciacao_anual) + ')  =  R$ ' + brl(c.custo_anual) +
     '</div>' +
     (rows
       ? '<div style="overflow-x:auto"><table>' +
