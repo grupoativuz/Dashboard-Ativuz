@@ -418,7 +418,7 @@ _FROTAS = {
     "joao-paulo": {
         "nome":            "João Paulo",
         "investidor":      "JOÃO PAULO CONSÓRCIOS",
-        "modelo":          "",          # preenchido quando as placas entrarem na planilha da frota
+        "modelo":          "POLO TRACK",
         "valor_semanal":   775.0,       # média das duas; o valor real é por veículo (veja "veiculos")
         "caucao":          1200.0,
         "semana_minima":   750.0,
@@ -427,7 +427,7 @@ _FROTAS = {
         "deprec_pct":      7.8,
         "seguro_anual":    0.0,         # não informado
         "seguro_parcelas": 1,
-        "km_ano":          0,           # não informado — trava o custo de óleo/filtro
+        "km_ano":          78000,       # 1.500 km/semana
         "revisoes":        [],          # sem plano fechado de fábrica; ver manutencao_itens
         "revisao_km":      0,
         "veiculos": {
@@ -444,7 +444,12 @@ _FROTAS = {
         ],
         # Peças eventuais não são orçáveis item a item — reserva de 5% da receita bruta
         "provisao_pct": 5.0,
-        "ocupacao":     {},   # definida a partir do 1º recebimento de cada motorista no extrato
+        # Semeada pela planilha de contratos (início da locação); confirmar contra o
+        # 1º recebimento de cada motorista quando o extrato for importado.
+        "ocupacao": {
+            "STX-6G05": [("ANNY KATARINA ACIOLE DA SILVA",  "2026-05-04", None)],
+            "SSW-1A28": [("ELIONILSON CORDEIRO BARBOSA",    "2026-03-16", None)],
+        },
         "indisponivel": {},
     },
 }
