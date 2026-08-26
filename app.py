@@ -242,6 +242,18 @@ _ASAAS_PROXY_FATURA = {
     "875101330": "JACKSON CASSIANO VERISSIMO",              # Polliana pagou por Jackson
 }
 
+# Pagadores que sempre representam outro motorista (todas as faturas em nome deles)
+_ASAAS_PROXY_PAGADOR = {
+    "polliana maria gonzalez canejo": "JACKSON CASSIANO VERISSIMO",
+    "zippi solucoes de credito":      "JOSE PEREIRA JUNIOR",
+}
+
+# Faturas que são caução pura (sem 1ª semana embutida) — motorista real
+_ASAAS_FATURAS_CAUCAO = {
+    "891485512": "JOSE PEREIRA JUNIOR",   # R$2.000 pagos via Zippi
+    "891487511": "JOSE PEREIRA JUNIOR",   # R$1.000 pagos pelo próprio
+}
+
 # Cobranças recebidas e depois devolvidas ao pagador — não entram em nenhum total
 _ASAAS_FATURAS_DEVOLVIDAS = {
     "865166300": "Adesão Alison Ferreira Spindola devolvida via Pix em 24/07/2026",
@@ -263,6 +275,8 @@ def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancament
         categoria = "devolvido"
     elif estornado or desc_n.startswith("estorno"):
         categoria = "estorno"
+    elif fatura in _ASAAS_FATURAS_CAUCAO:
+        categoria = "caucao"
     elif "cobranca recebida" in desc_n:
         categoria = "adesao" if abs_v >= 3000 else "aluguel"
     elif "luz divina" in desc_n:
@@ -281,11 +295,14 @@ def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancament
     # Extrai nome do motorista (cobranças)
     motorista = ""
     pagador   = ""
-    if categoria in ("aluguel", "adesao"):
+    if categoria in ("aluguel", "adesao", "caucao"):
         mf = _re.search(r"fatura nr\.\s*(\d+)\s+(.+)$", desc, _re.IGNORECASE)
         if mf:
             pagador   = mf.group(2).strip()
-            motorista = _ASAAS_PROXY_FATURA.get(mf.group(1), pagador)
+            motorista = (_ASAAS_FATURAS_CAUCAO.get(mf.group(1))
+                         or _ASAAS_PROXY_FATURA.get(mf.group(1))
+                         or _ASAAS_PROXY_PAGADOR.get(_asaas_norm(pagador))
+                         or pagador)
 
     # Placa do seguro
     placa_seguro = ""
@@ -322,15 +339,35 @@ def _asaas_totais(transacoes):
     semana_adesao = len(_adesoes) * _SEMANA_VALOR
 
     return {
-        "total_recebido":       _soma("aluguel") + _soma("adesao"),
+        "total_recebido":       _soma("aluguel") + _soma("adesao") + _soma("caucao"),
         "aluguel":              _soma("aluguel") + semana_adesao,
-        "caucao":               caucao_total,
+        "caucao":               caucao_total + _soma("caucao"),
         "taxa_ativuz":          _soma("taxa_ativuz"),
         "reembolso_manutencao": _soma("reembolso_manutencao"),
         "ipva":                 _soma("ipva"),
         "taxa_asaas":           _soma("taxa_asaas"),
         "estorno":              _soma("estorno"),
     }
+
+
+def _asaas_reclassificar(transacoes):
+    """Reaplica as regras de motorista/caução em lançamentos já salvos."""
+    import re as _re
+    for t in transacoes:
+        desc = t.get("descricao", "")
+        mf = _re.search(r"fatura nr\.\s*(\d+)\s+(.+)$", desc, _re.IGNORECASE)
+        if not mf or t.get("categoria") not in ("aluguel", "adesao", "caucao"):
+            continue
+        fatura, pagador = mf.group(1), mf.group(2).strip()
+        if fatura in _ASAAS_FATURAS_CAUCAO:
+            t["categoria"] = "caucao"
+        motorista = (_ASAAS_FATURAS_CAUCAO.get(fatura)
+                     or _ASAAS_PROXY_FATURA.get(fatura)
+                     or _ASAAS_PROXY_PAGADOR.get(_asaas_norm(pagador))
+                     or pagador)
+        t["motorista"] = motorista
+        t["pagador"]   = pagador if pagador != motorista else ""
+    return transacoes
 
 
 def _asaas_chave(t):
@@ -557,13 +594,14 @@ def api_asaas_extratos():
     res = sb.table("asaas_extratos").select("*").order("created_at").execute()
     extratos = []
     for row in (res.data or []):
+        txs = _asaas_reclassificar(row.get("transacoes", []) or [])
         extratos.append({
             "id":           row["id"],
             "periodo":      row.get("periodo", ""),
             "saldo_inicial": row.get("saldo_inicial"),
             "saldo_final":  row.get("saldo_final"),
-            "totais":       row.get("totais", {}),
-            "transacoes":   row.get("transacoes", []),
+            "totais":       _asaas_totais(txs),
+            "transacoes":   txs,
         })
     return jsonify(extratos)
 
