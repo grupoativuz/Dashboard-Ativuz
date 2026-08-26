@@ -694,7 +694,18 @@ a.fr-tab-btn { text-decoration: none; display: inline-block; line-height: normal
       <!-- Resultado acumulado -->
       <div id="asaas-resultado" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
-          <div id="asaas-periodo-lbl" class="asaas-periodo" style="margin-bottom:0"></div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div id="asaas-periodo-lbl" class="asaas-periodo" style="margin-bottom:0"></div>
+            {% if frotas | length > 1 %}
+            <select onchange="location.href='/insights/frota/' + this.value"
+              style="border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12.5px;
+                     font-weight:600;font-family:inherit;color:var(--text-muted);background:#fff;cursor:pointer;">
+              {% for f in frotas %}
+              <option value="{{ f.slug }}" {% if f.slug == frota.slug %}selected{% endif %}>{{ f.nome }}</option>
+              {% endfor %}
+            </select>
+            {% endif %}
+          </div>
           <div style="display:flex;gap:8px;align-items:center;">
             <!-- Botão compacto de adicionar extrato (dentro do resultado) -->
             <label for="asaas-file-input" style="display:inline-flex;align-items:center;gap:6px;background:none;
@@ -1276,6 +1287,7 @@ window._getAdmData = function() { return _admData; };
 
 /* ── Dados do servidor ── */
 var VEICULOS        = {{ veiculos | tojson }};
+var FROTA           = {{ frota | tojson }};
 var MANUAL          = {{ manual   | tojson }};  /* {placa: {ref_label: {valor, atualizado_em}}} */
 var CODIGOS         = {{ codigos  | tojson }};
 var CURR_MES_KEY    = '{{ curr_mes_key }}';    /* 'mai26' */
@@ -1878,14 +1890,15 @@ function brl(v) {
 }
 
 /* FIPE atual do BYD Dolphin Mini (média dos veículos do sistema) */
-function fipeBYD() {
+function fipeFrota() {
+  var alvo = (FROTA.modelo || '').toUpperCase();
   var vals = [];
   VEICULOS.forEach(function(v) {
-    if ((v.modelo || '').toUpperCase().indexOf('DOLPHIN') < 0) return;
+    if (!alvo || (v.modelo || '').toUpperCase().indexOf(alvo) < 0) return;
     var a = valorAtual(v);
     if (a && a.val != null) vals.push(a.val);
   });
-  if (!vals.length) return 114375;   // fallback: FIPE AGO/26
+  if (!vals.length) return 0;
   return vals.reduce(function(x, y) { return x + y; }, 0) / vals.length;
 }
 
@@ -1894,15 +1907,17 @@ var IPVA_PCT          = 0.01;
 var IPVA_PARCELAS     = 7;
 var LICENCIAMENTO     = 90;
 var TAXA_BOMBEIROS    = 24;
+var COTA_INVESTIDOR   = FROTA.cota_investidor;
 
 /* Plano de revisão oficial BYD — Dolphin Mini (Todos), preços sugeridos BYD/SP.
    Revisão a cada 20.000 km ou 12 meses, o que ocorrer primeiro. */
-var BYD_REVISOES    = [361, 1225, 361, 1225, 684, 1225, 361, 1225, 361, 1548];
-var BYD_REVISAO_KM  = 20000;
-var KM_ANO          = 72000;   // ~1.385 km/semana por motorista de aplicativo
+var BYD_REVISOES    = FROTA.revisoes;
+var BYD_REVISAO_KM  = FROTA.revisao_km;
+var KM_ANO          = FROTA.km_ano;   // ~1.385 km/semana por motorista de aplicativo
 
 /* Custo de revisão por km = ciclo completo do plano ÷ km do ciclo */
 function custoRevisaoKm() {
+  if (!BYD_REVISOES.length || !BYD_REVISAO_KM) return 0;
   var ciclo = BYD_REVISOES.reduce(function(a, b) { return a + b; }, 0);
   return ciclo / (BYD_REVISOES.length * BYD_REVISAO_KM);
 }
@@ -1910,8 +1925,9 @@ function custoRevisaoKm() {
 function manutencaoAnual() { return custoRevisaoKm() * KM_ANO; }
 
 function getParams() {
-  var fipe = fipeBYD();
-  var base = { aquisicao: 102000, manutencao: manutencaoAnual() / 12, seguro_total: 5100, depreciacao_pct: 7.8 };
+  var fipe = fipeFrota();
+  var base = { aquisicao: FROTA.aquisicao, manutencao: manutencaoAnual() / 12,
+               seguro_total: FROTA.seguro_anual, depreciacao_pct: FROTA.deprec_pct };
   var ipva_total = fipe * IPVA_PCT + LICENCIAMENTO + TAXA_BOMBEIROS;
 
   var d = window._asaasDados;
@@ -1919,10 +1935,10 @@ function getParams() {
   if (d && d.totais) {
     // Conta veículos pelo número de lançamentos de seguro no extrato (1 por veículo)
     var seguroTx   = (d.transacoes || []).filter(function(t) { return t.categoria === 'ipva' && t.relevante; });
-    var n_veiculos = seguroTx.length || 4;
-    // Seguro anualizado por veículo (parcelas 1/3 → ×3)
+    var n_veiculos = seguroTx.length || Object.keys(FROTA.ocupacao || {}).length || 1;
+    // Seguro anualizado por veículo (parcelas 1/n → × n)
     var seguro_pago = Math.abs(d.totais.ipva || 0);
-    if (seguro_pago > 0) seguro_real = seguro_pago * 3 / n_veiculos;
+    if (seguro_pago > 0) seguro_real = seguro_pago * FROTA.seguro_parcelas / n_veiculos;
   }
 
   return {
@@ -1936,7 +1952,7 @@ function getParams() {
 }
 
 function calcMetrics(valor_semanal, params) {
-  var inv_sem           = valor_semanal * 0.85;
+  var inv_sem           = valor_semanal * COTA_INVESTIDOR;
   var inv_mes           = inv_sem * (SEMANAS_ANO / 12);
   var seguro_mes        = params.seguro_total / 12;
   var ipva_mes          = params.ipva_total / 12;
@@ -1950,7 +1966,7 @@ function calcMetrics(valor_semanal, params) {
   var payback           = liq_mes > 0 ? (params.aquisicao / liq_mes) : Infinity;
   var margem_liq        = inv_mes > 0 ? (liq_mes / inv_mes * 100) : 0;
   var custo_anual       = params.manutencao * 12 + params.seguro_total + params.ipva_total + depreciacao_anual;
-  var sem_equilibrio    = custo_anual > 0 && valor_semanal > 0 ? custo_anual / (valor_semanal * 0.85) : 0;
+  var sem_equilibrio    = custo_anual > 0 && valor_semanal > 0 ? custo_anual / (valor_semanal * COTA_INVESTIDOR) : 0;
   var pct_ocupacao      = sem_equilibrio / 52 * 100;
   var acum_ano1         = liq_mes * 12;
   var acum_ano2         = liq_mes * 24;
@@ -1966,7 +1982,7 @@ function calcMetrics(valor_semanal, params) {
 /* ── Resumo Executivo ── */
 window.renderExecSummary = function renderExecSummary() {
   var params = getParams();
-  var c = calcMetrics(1200, params);
+  var c = calcMetrics(FROTA.valor_semanal, params);
   var el = document.getElementById('inv-exec');
   if (!el) return;
 
@@ -2033,7 +2049,7 @@ window.renderExecSummary = function renderExecSummary() {
 function renderComparacao(data) {
   var params = getParams();
   var modelos = [
-    { label: 'BYD (Elétrico)', cls: 'byd', valor_semanal: 1200, aquisicao: params.aquisicao }
+    { label: FROTA.modelo, cls: 'byd', valor_semanal: FROTA.valor_semanal, aquisicao: params.aquisicao }
   ];
   var html = modelos.map(function(m) {
     var p = { aquisicao: m.aquisicao, manutencao: params.manutencao, ipva_total: params.ipva_total, depreciacao_pct: params.depreciacao_pct };
@@ -2066,7 +2082,7 @@ function renderComparacao(data) {
 /* ── Bloco 3: Gráfico Payback ── */
 function renderPaybackChart() {
   var params = getParams();
-  var c = calcMetrics(1200, params);
+  var c = calcMetrics(FROTA.valor_semanal, params);
   var meses = [];
   var acum  = [];
   var teto  = [];
@@ -2158,7 +2174,7 @@ window.invRenderAll = function() {
 /* ── Modal: Rentabilidade Líquida Real ── */
 window.abrirModalRentReal = function() {
   var params  = getParams();
-  var c       = calcMetrics(1200, params);
+  var c       = calcMetrics(FROTA.valor_semanal, params);
   var frota   = window._rentRealData || [];
   var modal   = document.getElementById('modal-rent-real');
   var content = document.getElementById('modal-rent-body');
@@ -2217,7 +2233,7 @@ window.abrirModalRentReal = function() {
 };
 
 /* Carrega a rentabilidade real (ASAAS \u00d7 ocupa\u00e7\u00e3o) e re-renderiza o resumo */
-fetch('/api/rentabilidade-real')
+fetch('/api/rentabilidade-real?frota=' + FROTA.slug)
   .then(function(r) { return r.json(); })
   .then(function(j) {
     window._rentRealData = (j && j.ok) ? (j.veiculos || []) : [];
@@ -2313,7 +2329,7 @@ document.addEventListener('click', function(e) {
 
   /* ── Carrega extratos salvos do servidor ── */
   function _carregarExtratos() {
-    fetch('/api/asaas-extratos')
+    fetch('/api/asaas-extratos?frota=' + FROTA.slug)
       .then(function(r) { return r.json(); })
       .then(function(lista) {
         _extratos = lista;
@@ -2493,7 +2509,8 @@ document.addEventListener('click', function(e) {
       .then(function(d) {
         if (d.erro) { alert('Erro: ' + d.erro); return; }
         // Salva no servidor
-        return fetch('/api/asaas-salvar', {
+        d.frota = FROTA.slug;
+        return fetch('/api/asaas-salvar?frota=' + FROTA.slug, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(d)
