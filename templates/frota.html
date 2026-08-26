@@ -2139,6 +2139,10 @@ window.abrirModalRentReal = function() {
       var ini = o.de.split('-').reverse().slice(0,2).join('/');
       return o.motorista.split(' ')[0] + ' (' + ini + (o.ate ? '–' + o.ate.split('-').reverse().slice(0,2).join('/') : '→') + ')';
     }).join(', ');
+    var paradas = (v.paradas || []).map(function(pp) {
+      return pp.motivo + ' \u00b7 ' + pp.semanas + ' sem.';
+    }).join(', ');
+    if (paradas) ocup += '<br>\u23f8 ' + paradas;
     rows +=
       '<tr>' +
       '<td><strong>' + (v.placa || '—') + '</strong><br><span style="font-size:10.5px;color:var(--ink-3);">' + ocup + '</span></td>' +

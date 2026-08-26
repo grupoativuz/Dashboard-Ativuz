@@ -355,10 +355,19 @@ def _asaas_totais(transacoes):
 _FROTA_OCUPACAO = {
     "TSW-3H63": [("JACKSON CASSIANO VERISSIMO",           "2026-04-27", None)],
     "TSW-3H91": [("TANIELLE GLAUCIANA SOUZA DA SILVA",    "2026-05-11", "2026-08-03"),
-                 ("JOSE PEREIRA JUNIOR",                  "2026-08-24", None)],
+                 # Caução paga em 24/08; retirada do veículo em 27/08 — locação começa na semana de 31/08
+                 ("JOSE PEREIRA JUNIOR",                  "2026-08-31", None)],
     "TSW-3I33": [("MARCIANO EZEQUIEL VALDEVINO DA SILVA", "2026-05-11", "2026-08-03")],
     "TSW-3I03": [("ADRIANO TEOTONIO DA SILVA",            "2026-05-04", "2026-06-01"),
                  ("MARCIANO EZEQUIEL VALDEVINO DA SILVA", "2026-08-10", None)],
+}
+
+# Semanas em que o veículo não estava disponível para locação — não entram no
+# cálculo de rentabilidade (não são vacância comercial).
+_FROTA_INDISPONIVEL = {
+    # Datas exatas da virada manutenção -> reserva ainda não informadas
+    "TSW-3I03": [("Manutenção / carro reserva", "2026-06-08", "2026-08-03")],
+    "TSW-3I33": [("Manutenção",                 "2026-08-10", None)],   # sem prazo de retorno
 }
 
 # Fatia do aluguel que fica com o investidor (Ativuz retém a taxa de administração)
@@ -686,7 +695,22 @@ def api_rentabilidade_real():
                 cur += timedelta(weeks=1)
             ocupantes.append({"motorista": nome, "de": de, "ate": ate})
 
+        # Semanas fora de locação por manutenção / uso como carro reserva
+        paradas, sem_paradas = [], 0
+        for motivo, de, ate in _FROTA_INDISPONIVEL.get(placa, []):
+            d_ini = datetime.strptime(de, "%Y-%m-%d").date()
+            d_fim = min(datetime.strptime(ate, "%Y-%m-%d").date() if ate else hoje, hoje)
+            n = 0
+            cur = d_ini
+            while cur <= d_fim:
+                n += 1
+                cur += timedelta(weeks=1)
+            sem_paradas += n
+            paradas.append({"motivo": motivo, "de": de, "ate": ate, "semanas": n})
+
         veiculos.append({
+            "semanas_paradas": sem_paradas,
+            "paradas":         paradas,
             "placa":              placa,
             "modelo":             modelos.get(placa, ""),
             "semanas_ativas":     semanas,
