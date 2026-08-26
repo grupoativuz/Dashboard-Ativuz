@@ -2248,6 +2248,8 @@ document.addEventListener('click', function(e) {
       aluguel:              ['aluguel',  'Aluguel'],
       adesao:               ['adesao',   'Adesão'],
       caucao:               ['adesao',   'Caução'],
+      devolucao_caucao:     ['estorno',  'Devolução caução'],
+      devolucao_aluguel:    ['estorno',  'Devolução aluguel'],
       repasse_investidor:   ['repasse',  'Repasse investidor'],
       taxa_ativuz:          ['ativuz',   'Taxa Ativuz'],
       reembolso_manutencao: ['ativuz',   'Reembolso manutenção'],
@@ -2284,8 +2286,11 @@ document.addEventListener('click', function(e) {
         totais['caucao']         = (totais['caucao']         || 0) + Math.max(t.valor - SEMANA, 0);
         totais['total_recebido'] = (totais['total_recebido'] || 0) + t.valor;
         totais['aluguel']        = (totais['aluguel']        || 0) + SEMANA;
-      } else if (t.categoria === 'caucao') {
+      } else if (t.categoria === 'caucao' || t.categoria === 'devolucao_caucao') {
         totais['caucao']         = (totais['caucao']         || 0) + t.valor;
+        totais['total_recebido'] = (totais['total_recebido'] || 0) + t.valor;
+      } else if (t.categoria === 'devolucao_aluguel') {
+        totais['aluguel']        = (totais['aluguel']        || 0) + t.valor;
         totais['total_recebido'] = (totais['total_recebido'] || 0) + t.valor;
       } else if (t.categoria === 'aluguel') {
         totais['total_recebido'] = (totais['total_recebido'] || 0) + t.valor;
@@ -2298,7 +2303,7 @@ document.addEventListener('click', function(e) {
       periodo:       periodos.filter(Boolean).join(' + '),
       saldo_inicial: 0,
       saldo_final:   transacoes.reduce(function(s, t) {
-        var cats = ['aluguel','adesao','caucao','taxa_ativuz','reembolso_manutencao','ipva','taxa_asaas'];
+        var cats = ['aluguel','adesao','caucao','devolucao_caucao','devolucao_aluguel','taxa_ativuz','reembolso_manutencao','ipva','taxa_asaas'];
         return cats.indexOf(t.categoria) >= 0 ? s + t.valor : s;
       }, 0),
       totais:        totais,
@@ -2428,9 +2433,11 @@ document.addEventListener('click', function(e) {
     var SEMANA = 1200;
     var map = {};
     transacoes.forEach(function(t) {
-      if (t.categoria !== 'aluguel' && t.categoria !== 'adesao' && t.categoria !== 'caucao') return;
+      if (['aluguel','adesao','caucao','devolucao_caucao','devolucao_aluguel'].indexOf(t.categoria) < 0) return;
       var nome = t.motorista || 'Desconhecido';
       if (!map[nome]) map[nome] = { aluguel: 0, caucao: 0, semanas: {} };
+      if (t.categoria === 'devolucao_caucao')  { map[nome].caucao  += t.valor; return; }
+      if (t.categoria === 'devolucao_aluguel') { map[nome].aluguel += t.valor; return; }
       if (t.categoria === 'aluguel') { map[nome].aluguel += t.valor; }
       if (t.categoria === 'adesao')  {
         map[nome].aluguel += SEMANA;                          // 1ª semana conta como aluguel
@@ -2559,9 +2566,11 @@ document.addEventListener('click', function(e) {
     }
     var motorMap = {};
     d.transacoes.forEach(function(t) {
-      if (t.categoria !== 'aluguel' && t.categoria !== 'adesao' && t.categoria !== 'caucao') return;
+      if (['aluguel','adesao','caucao','devolucao_caucao','devolucao_aluguel'].indexOf(t.categoria) < 0) return;
       var nome = t.motorista || 'Desconhecido';
       if (!motorMap[nome]) motorMap[nome] = {aluguel:0, adesao:0, caucao:0, semanas:{}};
+      if (t.categoria === 'devolucao_caucao')  { motorMap[nome].caucao  += t.valor; return; }
+      if (t.categoria === 'devolucao_aluguel') { motorMap[nome].aluguel += t.valor; return; }
       if (t.categoria === 'aluguel') { motorMap[nome].aluguel += t.valor; }
       if (t.categoria === 'adesao')  motorMap[nome].adesao  += t.valor;
       if (t.categoria === 'caucao')  { motorMap[nome].caucao += t.valor; return; }
@@ -2633,6 +2642,8 @@ document.addEventListener('click', function(e) {
     /* Descrição curta por categoria */
     function _descCurta(t) {
       var c = t.categoria;
+      if (c === 'devolucao_caucao')  return 'Devolu\u00e7\u00e3o cau\u00e7\u00e3o \u2014 ' + (t.motorista || '').toUpperCase().split(' ')[0];
+      if (c === 'devolucao_aluguel') return 'Devolu\u00e7\u00e3o aluguel \u2014 ' + (t.motorista || '').toUpperCase().split(' ')[0];
       if (c === 'aluguel' || c === 'adesao' || c === 'caucao') {
         var nome = (t.motorista || '').toUpperCase().split(' ')[0];
         if (c === 'adesao') return 'Adesão — ' + nome;
@@ -2650,7 +2661,7 @@ document.addEventListener('click', function(e) {
     }
 
     /* Filtra transações do período selecionado */
-    var CATS_SEMANA = ['aluguel','adesao','caucao','taxa_ativuz','reembolso_manutencao','ipva','taxa_asaas'];
+    var CATS_SEMANA = ['aluguel','adesao','caucao','devolucao_caucao','devolucao_aluguel','taxa_ativuz','reembolso_manutencao','ipva','taxa_asaas'];
     var txSemana = d.transacoes.filter(function(t) {
       if (CATS_SEMANA.indexOf(t.categoria) < 0) return false;
       if (!seg) return true;  // sem filtro de data: mostra tudo

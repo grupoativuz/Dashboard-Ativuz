@@ -254,6 +254,13 @@ _ASAAS_FATURAS_CAUCAO = {
     "891487511": "JOSE PEREIRA JUNIOR",   # R$1.000 pagos pelo próprio
 }
 
+# PIX de devolução ao motorista — estornam o que ele já havia pago.
+# Adriano devolveu o carro no mesmo dia em que pagou a semana: caução + semana de volta.
+_ASAAS_DEVOLUCOES = {
+    "1891815437": ("devolucao_caucao",  "ADRIANO TEOTONIO DA SILVA"),
+    "1891871820": ("devolucao_aluguel", "ADRIANO TEOTONIO DA SILVA"),
+}
+
 # Cobranças recebidas e depois devolvidas ao pagador — não entram em nenhum total
 _ASAAS_FATURAS_DEVOLVIDAS = {
     "865166300": "Adesão Alison Ferreira Spindola devolvida via Pix em 24/07/2026",
@@ -271,7 +278,9 @@ def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancament
     m_fat    = _re.search(r"fatura nr\.\s*(\d+)", desc, _re.IGNORECASE)
     fatura   = m_fat.group(1) if m_fat else ""
 
-    if fatura in _ASAAS_FATURAS_DEVOLVIDAS:
+    if tx_id in _ASAAS_DEVOLUCOES:
+        categoria = _ASAAS_DEVOLUCOES[tx_id][0]
+    elif fatura in _ASAAS_FATURAS_DEVOLVIDAS:
         categoria = "devolvido"
     elif estornado or desc_n.startswith("estorno"):
         categoria = "estorno"
@@ -295,7 +304,9 @@ def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancament
     # Extrai nome do motorista (cobranças)
     motorista = ""
     pagador   = ""
-    if categoria in ("aluguel", "adesao", "caucao"):
+    if categoria in ("devolucao_caucao", "devolucao_aluguel"):
+        motorista = _ASAAS_DEVOLUCOES[tx_id][1]
+    elif categoria in ("aluguel", "adesao", "caucao"):
         mf = _re.search(r"fatura nr\.\s*(\d+)\s+(.+)$", desc, _re.IGNORECASE)
         if mf:
             pagador   = mf.group(2).strip()
@@ -338,10 +349,14 @@ def _asaas_totais(transacoes):
     caucao_total  = sum(max(t["valor"] - _SEMANA_VALOR, 0) for t in _adesoes)
     semana_adesao = len(_adesoes) * _SEMANA_VALOR
 
+    # Devoluções ao motorista (valores negativos) abatem o que ele havia pago
     return {
-        "total_recebido":       _soma("aluguel") + _soma("adesao") + _soma("caucao"),
-        "aluguel":              _soma("aluguel") + semana_adesao,
-        "caucao":               caucao_total + _soma("caucao"),
+        "total_recebido":       _soma("aluguel") + _soma("adesao") + _soma("caucao")
+                                + _soma("devolucao_aluguel") + _soma("devolucao_caucao"),
+        "aluguel":              _soma("aluguel") + semana_adesao + _soma("devolucao_aluguel"),
+        "caucao":               caucao_total + _soma("caucao") + _soma("devolucao_caucao"),
+        "devolucao_aluguel":    _soma("devolucao_aluguel"),
+        "devolucao_caucao":     _soma("devolucao_caucao"),
         "taxa_ativuz":          _soma("taxa_ativuz"),
         "reembolso_manutencao": _soma("reembolso_manutencao"),
         "ipva":                 _soma("ipva"),
@@ -378,6 +393,12 @@ def _asaas_reclassificar(transacoes):
     """Reaplica as regras de motorista/caução em lançamentos já salvos."""
     import re as _re
     for t in transacoes:
+        dev = _ASAAS_DEVOLUCOES.get(t.get("tx_id") or "")
+        if dev:
+            t["categoria"], t["motorista"] = dev
+            t["pagador"] = ""
+            t["relevante"] = True
+            continue
         desc = t.get("descricao", "")
         mf = _re.search(r"fatura nr\.\s*(\d+)\s+(.+)$", desc, _re.IGNORECASE)
         if not mf or t.get("categoria") not in ("aluguel", "adesao", "caucao"):
@@ -669,10 +690,36 @@ def api_rentabilidade_real():
             continue
         seg   = d - timedelta(days=d.weekday())
         # Na adesão só a 1ª semana é aluguel; o restante é caução
-        valor = _SEMANA_VALOR if t["categoria"] == "adesao" else t["valor"]
+        valor = _SEMANA_VALOR if t["categoria"] == "adesao" else t["valor"]   # devolução entra negativa
         nome  = (t.get("motorista") or "").upper()
         por_motorista.setdefault(nome, {})
         por_motorista[nome][seg] = por_motorista[nome].get(seg, 0) + valor
+
+    # Devoluções de aluguel: abatem do veículo que o motorista ocupava, mesmo que o
+    # PIX de volta tenha saído depois de ele já ter entregue o carro.
+    devolucoes = []
+    for t in transacoes:
+        if t.get("categoria") != "devolucao_aluguel":
+            continue
+        try:
+            d = datetime.strptime(t["data"], "%d/%m/%Y").date()
+        except (ValueError, KeyError):
+            continue
+        devolucoes.append(((t.get("motorista") or "").upper(), d, t["valor"]))
+
+    # Cada devolução pertence a uma única placa: a última que o motorista ocupou até a data
+    devolucao_por_placa = {}
+    for nome_dev, data_dev, valor_dev in devolucoes:
+        melhor_placa, melhor_de = None, None
+        for placa, periodos in _FROTA_OCUPACAO.items():
+            for nome, de, _ate in periodos:
+                if nome.upper() != nome_dev:
+                    continue
+                d_de = datetime.strptime(de, "%Y-%m-%d").date()
+                if d_de <= data_dev and (melhor_de is None or d_de > melhor_de):
+                    melhor_placa, melhor_de = placa, d_de
+        if melhor_placa:
+            devolucao_por_placa[melhor_placa] = devolucao_por_placa.get(melhor_placa, 0) + valor_dev
 
     # 2) Atribui cada semana ao veículo ocupado
     modelos = {v["placa"].upper(): v.get("modelo", "") for v in (_ler_sob_administracao()[0] or [])}
@@ -707,6 +754,8 @@ def api_rentabilidade_real():
                 cur += timedelta(weeks=1)
             sem_paradas += n
             paradas.append({"motivo": motivo, "de": de, "ate": ate, "semanas": n})
+
+        recebido += devolucao_por_placa.get(placa, 0)
 
         veiculos.append({
             "semanas_paradas": sem_paradas,
