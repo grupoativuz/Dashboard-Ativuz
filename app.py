@@ -714,8 +714,7 @@ def api_asaas_salvar():
     transacoes = dados.get("transacoes", [])
     ja_salvas = set()
     try:
-        antigos = _asaas_query_frota(sb, cfg["slug"]).execute()
-        for row in (antigos.data or []):
+        for row in _asaas_extratos_da_frota(sb, cfg["slug"]):
             for t in (row.get("transacoes") or []):
                 ja_salvas.add(_asaas_chave(t))
     except Exception:
@@ -752,9 +751,8 @@ def api_asaas_salvar():
 def api_asaas_extratos():
     sb = _supabase()
     cfg = _frota_cfg(request.args.get("frota"))
-    res = _asaas_query_frota(sb, cfg["slug"], "*").execute()
     extratos = []
-    for row in (res.data or []):
+    for row in _asaas_extratos_da_frota(sb, cfg["slug"], "*"):
         txs = _asaas_reclassificar(row.get("transacoes", []) or [])
         extratos.append({
             "id":           row["id"],
@@ -770,27 +768,32 @@ def api_asaas_extratos():
 _ASAAS_TEM_COLUNA_FROTA = None   # descoberto na 1ª consulta
 
 
-def _asaas_query_frota(sb, slug, colunas="transacoes"):
+def _asaas_extratos_da_frota(sb, slug, colunas="transacoes"):
     """
-    Consulta os extratos de uma frota.
+    Lê os extratos de uma frota e devolve as linhas.
 
-    A coluna `frota` foi acrescentada depois que a tabela já existia; enquanto o
-    banco não for migrado, todos os extratos são tratados como da frota padrão.
-    Migração:
+    A coluna `frota` foi acrescentada depois que a tabela já existia. Se o banco
+    ainda não tiver a coluna — ou se o PostgREST ainda não recarregou o schema —
+    a consulta filtrada falha e caímos na tabela inteira, tratada como frota
+    padrão. Migração:
         ALTER TABLE asaas_extratos ADD COLUMN frota text NOT NULL DEFAULT 'luz-divina';
     """
     global _ASAAS_TEM_COLUNA_FROTA
-    q = sb.table("asaas_extratos").select(colunas).order("created_at")
-    if _ASAAS_TEM_COLUNA_FROTA is False:
-        return q
+    if sb is None:
+        return []
+    if _ASAAS_TEM_COLUNA_FROTA is not False:
+        try:
+            res = (sb.table("asaas_extratos").select(colunas)
+                     .eq("frota", slug).order("created_at").execute())
+            _ASAAS_TEM_COLUNA_FROTA = True
+            return res.data or []
+        except Exception:
+            _ASAAS_TEM_COLUNA_FROTA = False
     try:
-        filtrada = sb.table("asaas_extratos").select(colunas).eq("frota", slug).order("created_at")
-        filtrada.execute()
-        _ASAAS_TEM_COLUNA_FROTA = True
-        return filtrada
+        res = sb.table("asaas_extratos").select(colunas).order("created_at").execute()
+        return res.data or []
     except Exception:
-        _ASAAS_TEM_COLUNA_FROTA = False
-        return q
+        return []
 
 
 @app.route("/api/rentabilidade-real")
@@ -811,8 +814,7 @@ def api_rentabilidade_real():
     transacoes, vistas = [], set()
     if sb:
         try:
-            res = _asaas_query_frota(sb, cfg["slug"]).execute()
-            for row in (res.data or []):
+            for row in _asaas_extratos_da_frota(sb, cfg["slug"]):
                 for t in _asaas_reclassificar(row.get("transacoes") or []):
                     k = _asaas_chave(t)
                     if k in vistas:
