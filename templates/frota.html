@@ -2328,7 +2328,7 @@ window.abrirModalRentReal = function() {
 };
 
 /* Carrega a rentabilidade real (ASAAS \u00d7 ocupa\u00e7\u00e3o) e re-renderiza o resumo */
-fetch('/api/rentabilidade-real')
+fetch('/api/rentabilidade-real?frota=luz-divina')
   .then(function(r) { return r.json(); })
   .then(function(j) {
     window._rentRealData = (j && j.ok) ? (j.veiculos || []) : [];
@@ -2424,7 +2424,7 @@ document.addEventListener('click', function(e) {
 
   /* ── Carrega extratos salvos do servidor ── */
   function _carregarExtratos() {
-    fetch('/api/asaas-extratos')
+    fetch('/api/asaas-extratos?frota=luz-divina')
       .then(function(r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.json();
@@ -2617,12 +2617,13 @@ document.addEventListener('click', function(e) {
     fd.append('arquivo', file);
     var loadMsg = document.getElementById('asaas-load-msg');
     if (loadMsg) loadMsg.style.display = '';
-    fetch('/api/asaas-parse', { method: 'POST', body: fd })
+    fetch('/api/asaas-parse?frota=luz-divina', { method: 'POST', body: fd })
       .then(function(r) { return r.json(); })
       .then(function(d) {
         if (d.erro) { alert('Erro: ' + d.erro); return; }
         // Salva no servidor
-        return fetch('/api/asaas-salvar', {
+        d.frota = 'luz-divina';
+        return fetch('/api/asaas-salvar?frota=luz-divina', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(d)
