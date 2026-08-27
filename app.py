@@ -272,8 +272,12 @@ _FROTAS = {
         "semana":  750.0,
         "cota_investidor": 0.85,
         "ocupacao": {
-            "STX-6G05": [("ANNY KATARINA ACIOLE DA SILVA", "2026-05-04", None)],
-            "SSW-1A28": [("ELIONILSON CORDEIRO BARBOSA",   "2026-03-16", None)],
+            # STX passou por três motoristas; datas = 1º e último recebimento de cada
+            "STX-6G05": [("REGINALDO BENTO DA SILVA",          "2026-04-06", "2026-04-27"),
+                         ("PEDRO GABRIEL FASANARO DE OLIVEIRA", "2026-05-11", "2026-06-15"),
+                         ("ANNY KATARINA ACIOLE DA SILVA",      "2026-07-13", None)],
+            # SSW sempre com o Elionilson (caução paga em 18/03)
+            "SSW-1A28": [("ELIONILSON CORDEIRO BARBOSA",        "2026-03-16", None)],
         },
         "indisponivel": {},
     },
@@ -292,6 +296,12 @@ def _frota_cfg(valor=None):
 
 # Cobranças que passam pela mesma conta ASAAS mas não são locação de veículo —
 # ficam fora de todos os totais e da tabela por motorista.
+# Mesmo cliente cadastrado com nomes diferentes no ASAAS
+_ASAAS_ALIAS_MOTORISTA = {
+    "67.009.261 elionilson c. barbosa": "ELIONILSON CORDEIRO BARBOSA",
+}
+
+
 _ASAAS_NAO_VEICULO = (
     "gelo e gela conveniencia",
     "juan e ivan conveniencia",
@@ -321,6 +331,7 @@ _ASAAS_PROXY_PAGADOR = {
 
 # Faturas que são caução pura (sem 1ª semana embutida) — motorista real
 _ASAAS_FATURAS_CAUCAO = {
+    "767966354": "ELIONILSON CORDEIRO BARBOSA",   # caução do Polo cobrada via Ativuz
     "891485512": "JOSE PEREIRA JUNIOR",   # R$2.000 pagos via Zippi
     "891487511": "JOSE PEREIRA JUNIOR",   # R$1.000 pagos pelo próprio
 }
@@ -388,6 +399,7 @@ def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancament
             motorista = (_ASAAS_FATURAS_CAUCAO.get(mf.group(1))
                          or _ASAAS_PROXY_FATURA.get(mf.group(1))
                          or _ASAAS_PROXY_PAGADOR.get(_asaas_norm(pagador))
+                         or _ASAAS_ALIAS_MOTORISTA.get(_asaas_norm(pagador))
                          or pagador)
 
     # Placa do seguro
@@ -453,6 +465,9 @@ def _asaas_reclassificar(transacoes):
             t["relevante"] = False
             t["motorista"] = ""
             continue
+        alias = _ASAAS_ALIAS_MOTORISTA.get(_asaas_norm(t.get("motorista", "")))
+        if alias:
+            t["motorista"] = alias
         dev = _ASAAS_DEVOLUCOES.get(t.get("tx_id") or "")
         if dev:
             t["categoria"], t["motorista"] = dev
@@ -469,6 +484,7 @@ def _asaas_reclassificar(transacoes):
         motorista = (_ASAAS_FATURAS_CAUCAO.get(fatura)
                      or _ASAAS_PROXY_FATURA.get(fatura)
                      or _ASAAS_PROXY_PAGADOR.get(_asaas_norm(pagador))
+                     or _ASAAS_ALIAS_MOTORISTA.get(_asaas_norm(pagador))
                      or pagador)
         t["motorista"] = motorista
         t["pagador"]   = pagador if pagador != motorista else ""
