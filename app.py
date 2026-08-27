@@ -290,6 +290,13 @@ def _frota_cfg(valor=None):
     return _FROTAS[_frota_slug(valor)]
 
 
+# Cobranças que passam pela mesma conta ASAAS mas não são locação de veículo —
+# ficam fora de todos os totais e da tabela por motorista.
+_ASAAS_NAO_VEICULO = (
+    "gelo e gela conveniencia",
+)
+
+
 _ASAAS_CLIENTES_N = [
     "jackson cassiano verissimo",
     "adriano teotonio da silva",
@@ -343,7 +350,9 @@ def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancament
     m_fat    = _re.search(r"fatura nr\.\s*(\d+)", desc, _re.IGNORECASE)
     fatura   = m_fat.group(1) if m_fat else ""
 
-    if tx_id in _ASAAS_DEVOLUCOES:
+    if any(p in desc_n for p in _ASAAS_NAO_VEICULO):
+        categoria = "nao_veiculo"
+    elif tx_id in _ASAAS_DEVOLUCOES:
         categoria = _ASAAS_DEVOLUCOES[tx_id][0]
     elif fatura in _ASAAS_FATURAS_DEVOLVIDAS:
         categoria = "devolvido"
@@ -399,7 +408,7 @@ def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancament
         "placa_seguro":  placa_seguro,
         # Relevante = tudo exceto PIX para terceiros sem relação com a operação
         # e cobranças devolvidas ao pagador
-        "relevante":     categoria not in ("outro", "devolvido"),
+        "relevante":     categoria not in ("outro", "devolvido", "nao_veiculo"),
     }
 
 
@@ -438,6 +447,11 @@ def _asaas_reclassificar(transacoes):
     """Reaplica as regras de motorista/caução em lançamentos já salvos."""
     import re as _re
     for t in transacoes:
+        if any(p in _asaas_norm(t.get("descricao", "")) for p in _ASAAS_NAO_VEICULO):
+            t["categoria"] = "nao_veiculo"
+            t["relevante"] = False
+            t["motorista"] = ""
+            continue
         dev = _ASAAS_DEVOLUCOES.get(t.get("tx_id") or "")
         if dev:
             t["categoria"], t["motorista"] = dev
