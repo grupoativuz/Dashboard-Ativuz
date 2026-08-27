@@ -181,7 +181,12 @@
       "Bash(awk -F: '$1>2100 && $1<2650')",
       "Bash(xargs -I{} du -k \"{}\")",
       "Bash(./../Dashboard-Ativuz/venv/bin/python -c ' *)",
-      "Bash(awk '{print $1, $4, $6}')"
+      "Bash(awk '{print $1, $4, $6}')",
+      "Bash(ps -o pid,lstart,command -p 64374)",
+      "Bash(ps -eo pid,lstart,command)",
+      "Bash(pkill -f \"python app.py\")",
+      "Bash(ps -eo pid,command)",
+      "Bash(kill -9 64374)"
     ]
   }
 }
