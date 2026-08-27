@@ -602,7 +602,7 @@ def api_asaas_salvar():
     transacoes = dados.get("transacoes", [])
     ja_salvas = set()
     try:
-        antigos = sb.table("asaas_extratos").select("transacoes").execute()
+        antigos = _sb_retry(lambda: sb.table("asaas_extratos").select("transacoes").execute())
         for row in (antigos.data or []):
             for t in (row.get("transacoes") or []):
                 ja_salvas.add(_asaas_chave(t))
@@ -633,10 +633,33 @@ def api_asaas_salvar():
     return jsonify({"ok": True, "id": row.get("id"), "duplicadas": duplicadas})
 
 
+def _sb_retry(consulta, tentativas=3):
+    """
+    Executa uma consulta ao Supabase com retentativa.
+
+    O cliente httpx falha esporadicamente com ReadError ([Errno 35]) mesmo em
+    respostas pequenas; sem retentativa a rota devolvia 500 e a página ficava
+    vazia, sem indicar o motivo.
+    """
+    import time as _time
+    ultimo = None
+    for tentativa in range(tentativas):
+        try:
+            return consulta()
+        except Exception as exc:
+            ultimo = exc
+            if tentativa < tentativas - 1:
+                _time.sleep(0.3 * (tentativa + 1))
+    raise ultimo
+
+
 @app.route("/api/asaas-extratos")
 def api_asaas_extratos():
     sb = _supabase()
-    res = sb.table("asaas_extratos").select("*").order("created_at").execute()
+    try:
+        res = _sb_retry(lambda: sb.table("asaas_extratos").select("*").order("created_at").execute())
+    except Exception as exc:
+        return jsonify({"erro": "Falha ao ler os extratos: %s" % exc}), 503
     extratos = []
     for row in (res.data or []):
         txs = _asaas_reclassificar(row.get("transacoes", []) or [])
@@ -669,7 +692,7 @@ def api_rentabilidade_real():
     transacoes, vistas = [], set()
     if sb:
         try:
-            res = sb.table("asaas_extratos").select("transacoes").order("created_at").execute()
+            res = _sb_retry(lambda: sb.table("asaas_extratos").select("transacoes").order("created_at").execute())
             for row in (res.data or []):
                 for t in _asaas_reclassificar(row.get("transacoes") or []):
                     k = _asaas_chave(t)
