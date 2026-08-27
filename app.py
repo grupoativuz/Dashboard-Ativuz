@@ -267,13 +267,9 @@ _ASAAS_FATURAS_DEVOLVIDAS = {
 }
 
 
-def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancamento="", cfg=None):
+def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancamento=""):
     """Classifica uma linha do extrato (xlsx ou OFX) no formato usado pelo painel."""
     import re as _re
-
-    cfg = cfg or _frota_cfg()
-    # Adesão = caução + 1ª semana. O piso separa adesão de aluguel avulso.
-    piso_adesao = cfg["caucao"] + cfg["semana_minima"]
 
     desc_n = _asaas_norm(desc)
     abs_v  = abs(valor)
@@ -291,7 +287,7 @@ def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancament
     elif fatura in _ASAAS_FATURAS_CAUCAO:
         categoria = "caucao"
     elif "cobranca recebida" in desc_n:
-        categoria = "adesao" if abs_v >= piso_adesao else "aluguel"
+        categoria = "adesao" if abs_v >= 3000 else "aluguel"
     elif "luz divina" in desc_n:
         categoria = "repasse_investidor"
     elif "ativuz" in desc_n:
@@ -342,18 +338,16 @@ def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancament
     }
 
 
-def _asaas_totais(transacoes, cfg=None):
+def _asaas_totais(transacoes):
     """Totalizadores — apenas lançamentos relevantes."""
-    cfg = cfg or _frota_cfg()
-
     def _soma(cat):
         return sum(t["valor"] for t in transacoes if t["categoria"] == cat and t["relevante"])
 
-    # Adesão = caução (valor fixo do contrato) + 1ª semana (o que sobrar)
-    _CAUCAO  = cfg["caucao"]
+    # Adesão = caução (R$3.000) + 1ª semana (R$1.200)
+    _SEMANA_VALOR = 1200
     _adesoes = [t for t in transacoes if t["categoria"] == "adesao" and t["relevante"]]
-    caucao_total  = len(_adesoes) * _CAUCAO
-    semana_adesao = sum(max(t["valor"] - _CAUCAO, 0) for t in _adesoes)
+    caucao_total  = sum(max(t["valor"] - _SEMANA_VALOR, 0) for t in _adesoes)
+    semana_adesao = len(_adesoes) * _SEMANA_VALOR
 
     # Devoluções ao motorista (valores negativos) abatem o que ele havia pago
     return {
@@ -371,124 +365,28 @@ def _asaas_totais(transacoes, cfg=None):
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Frotas sob administração
-#
-# Cada frota é um investidor com seus próprios veículos, extrato ASAAS e
-# parâmetros de custo. A página /insights/frota/<slug> é servida pelo mesmo
-# template para todas — para incluir uma frota nova, basta acrescentar uma
-# entrada aqui.
-#
-#   ocupacao      placa -> [(motorista, 1ª segunda ocupada, última | None)]
-#   indisponivel  placa -> [(motivo, de, até | None)]  semanas fora de locação
-#   revisoes      plano de revisão do fabricante (preço de cada revisão)
-# ─────────────────────────────────────────────────────────────────────────────
-_FROTAS = {
-    "luz-divina": {
-        "nome":            "Luz Divina",
-        "investidor":      "LUZ DIVINA LTDA",
-        "modelo":          "BYD DOLPHIN MINI",
-        "valor_semanal":   1200.0,
-        "caucao":          3000.0,
-        "semana_minima":   1200.0,   # piso p/ separar adesão de aluguel avulso
-        "cota_investidor": 0.85,    # Ativuz retém 15% de taxa de administração
-        "aquisicao":       102000.0,
-        "deprec_pct":      7.8,
-        "seguro_anual":    5110.25,
-        "seguro_parcelas": 3,
-        "km_ano":          72000,
-        "revisoes":        [361, 1225, 361, 1225, 684, 1225, 361, 1225, 361, 1548],
-        "revisao_km":      20000,
-        "ocupacao": {
-            "TSW-3H63": [("JACKSON CASSIANO VERISSIMO",           "2026-04-27", None)],
-            "TSW-3H91": [("TANIELLE GLAUCIANA SOUZA DA SILVA",    "2026-05-11", "2026-08-03"),
-                         # Caução paga em 24/08; retirada do veículo em 27/08 — locação começa na semana de 31/08
-                         ("JOSE PEREIRA JUNIOR",                  "2026-08-31", None)],
-            "TSW-3I33": [("MARCIANO EZEQUIEL VALDEVINO DA SILVA", "2026-05-11", "2026-08-03")],
-            "TSW-3I03": [("ADRIANO TEOTONIO DA SILVA",            "2026-05-04", "2026-06-01"),
-                         ("MARCIANO EZEQUIEL VALDEVINO DA SILVA", "2026-08-10", None)],
-        },
-        "indisponivel": {
-            # Datas exatas da virada manutenção -> reserva ainda não informadas
-            "TSW-3I03": [("Manutenção / carro reserva", "2026-06-08", "2026-08-03")],
-            "TSW-3I33": [("Manutenção",                 "2026-08-10", None)],   # sem prazo de retorno
-        },
-    },
-
-    "joao-paulo": {
-        "nome":            "João Paulo",
-        "investidor":      "JOÃO PAULO CONSÓRCIOS",
-        "modelo":          "",          # preenchido quando as placas entrarem na planilha da frota
-        "valor_semanal":   775.0,       # média das duas; o valor real é por veículo (veja "veiculos")
-        "caucao":          1200.0,
-        "semana_minima":   750.0,
-        "cota_investidor": 0.85,
-        "aquisicao":       65522.0,
-        "deprec_pct":      7.8,
-        "seguro_anual":    0.0,         # não informado
-        "seguro_parcelas": 1,
-        "km_ano":          0,           # não informado — trava o custo de óleo/filtro
-        "revisoes":        [],          # sem plano fechado de fábrica; ver manutencao_itens
-        "revisao_km":      0,
-        "veiculos": {
-            "STX-6G05": {"valor_semanal": 800.0},
-            "SSW-1A28": {"valor_semanal": 750.0},
-        },
-        # Manutenção montada por item, já que não há plano do fabricante.
-        # valor_ano  = custo anual fechado
-        # valor / km = custo por evento, repetido a cada N km (precisa de km_ano)
-        "manutencao_itens": [
-            {"label": "Pneus (4 × R$ 260, 1× ao ano)",              "valor_ano": 1040.0},
-            {"label": "Alinhamento e balanceamento (R$ 50, 4× ao ano)", "valor_ano": 200.0},
-            {"label": "Óleo e filtro (a cada 10.000 km)",           "valor": 0.0, "km": 10000},
-        ],
-        "ocupacao":     {},   # definida a partir do 1º recebimento de cada motorista no extrato
-        "indisponivel": {},
-    },
+# Histórico de ocupação: qual motorista estava em cada veículo em cada período.
+# (motorista, primeira segunda ocupada, última segunda ocupada — None = até hoje)
+_FROTA_OCUPACAO = {
+    "TSW-3H63": [("JACKSON CASSIANO VERISSIMO",           "2026-04-27", None)],
+    "TSW-3H91": [("TANIELLE GLAUCIANA SOUZA DA SILVA",    "2026-05-11", "2026-08-03"),
+                 # Caução paga em 24/08; retirada do veículo em 27/08 — locação começa na semana de 31/08
+                 ("JOSE PEREIRA JUNIOR",                  "2026-08-31", None)],
+    "TSW-3I33": [("MARCIANO EZEQUIEL VALDEVINO DA SILVA", "2026-05-11", "2026-08-03")],
+    "TSW-3I03": [("ADRIANO TEOTONIO DA SILVA",            "2026-05-04", "2026-06-01"),
+                 ("MARCIANO EZEQUIEL VALDEVINO DA SILVA", "2026-08-10", None)],
 }
 
-_FROTA_PADRAO = "luz-divina"
-
-# Valores usados quando a frota nova ainda não informou o parâmetro
-_FROTA_DEFAULTS = {
-    "nome": "", "investidor": "", "modelo": "", "valor_semanal": 0.0,
-    "caucao": 3000.0, "semana_minima": 1200.0,
-    "cota_investidor": 0.85, "aquisicao": 0.0, "deprec_pct": 7.8,
-    "seguro_anual": 0.0, "seguro_parcelas": 1, "km_ano": 0,
-    "revisoes": [], "revisao_km": 20000, "manutencao_itens": [],
-    "veiculos": {}, "ocupacao": {}, "indisponivel": {},
+# Semanas em que o veículo não estava disponível para locação — não entram no
+# cálculo de rentabilidade (não são vacância comercial).
+_FROTA_INDISPONIVEL = {
+    # Datas exatas da virada manutenção -> reserva ainda não informadas
+    "TSW-3I03": [("Manutenção / carro reserva", "2026-06-08", "2026-08-03")],
+    "TSW-3I33": [("Manutenção",                 "2026-08-10", None)],   # sem prazo de retorno
 }
 
-
-def _frota_cfg(slug=None):
-    """Configuração da frota pedida (cai na padrão quando o slug não existe)."""
-    cfg = dict(_FROTA_DEFAULTS)
-    cfg.update(_FROTAS.get(slug or _FROTA_PADRAO) or _FROTAS[_FROTA_PADRAO])
-    cfg["slug"] = slug if slug in _FROTAS else _FROTA_PADRAO
-    return cfg
-
-
-def _frota_custo_anual(cfg):
-    """Custo anual por veículo: revisão + seguro + IPVA + depreciação."""
-    revisoes = cfg.get("revisoes") or []
-    manutencao, pendentes = 0.0, []
-    if revisoes and cfg.get("revisao_km") and cfg.get("km_ano"):
-        custo_km = sum(revisoes) / (len(revisoes) * cfg["revisao_km"])
-        manutencao = custo_km * cfg["km_ano"]
-    for item in (cfg.get("manutencao_itens") or []):
-        if item.get("valor_ano"):
-            manutencao += item["valor_ano"]
-        elif item.get("km") and cfg.get("km_ano") and item.get("valor"):
-            manutencao += item["valor"] / item["km"] * cfg["km_ano"]
-        else:
-            pendentes.append(item.get("label", ""))
-    deprec = cfg.get("aquisicao", 0) * (cfg.get("deprec_pct", 0) / 100)
-    return {
-        "manutencao":  round(manutencao, 2),
-        "seguro":      round(cfg.get("seguro_anual", 0), 2),
-        "depreciacao": round(deprec, 2),
-        "pendentes":   pendentes,   # itens sem valor/km — custo subestimado enquanto houver
-    }
+# Fatia do aluguel que fica com o investidor (Ativuz retém a taxa de administração)
+_FROTA_COTA_INVESTIDOR = 0.85
 
 
 def _asaas_reclassificar(transacoes):
@@ -522,7 +420,7 @@ def _asaas_chave(t):
     return t.get("tx_id") or "{}|{}|{}".format(t.get("data"), t.get("descricao"), t.get("valor"))
 
 
-def _asaas_ler_xlsx(f, cfg=None):
+def _asaas_ler_xlsx(f):
     """Lê o extrato oficial do ASAAS em .xlsx. Retorna (dados, erro)."""
     import openpyxl
 
@@ -582,7 +480,7 @@ def _asaas_ler_xlsx(f, cfg=None):
         except (TypeError, ValueError):
             continue
 
-        transacoes.append(_asaas_montar_transacao(data, tx_id, tipo, estorn, desc, valor, lancam, cfg))
+        transacoes.append(_asaas_montar_transacao(data, tx_id, tipo, estorn, desc, valor, lancam))
 
     return {
         "periodo":       periodo,
@@ -592,7 +490,7 @@ def _asaas_ler_xlsx(f, cfg=None):
     }, None
 
 
-def _asaas_ler_ofx(f, cfg=None):
+def _asaas_ler_ofx(f):
     """Lê extrato bancário no formato OFX/QFX (SGML ou XML). Retorna (dados, erro)."""
     import re as _re
 
@@ -635,7 +533,7 @@ def _asaas_ler_ofx(f, cfg=None):
         if not data or not desc:
             continue
         transacoes.append(_asaas_montar_transacao(
-            data, _tag(bloco, "FITID"), _tag(bloco, "TRNTYPE"), "", desc, valor, "", cfg))
+            data, _tag(bloco, "FITID"), _tag(bloco, "TRNTYPE"), "", desc, valor))
 
     if not transacoes:
         return None, "Nenhum lançamento válido encontrado no arquivo OFX"
@@ -668,12 +566,11 @@ def api_asaas_parse():
     if not f:
         return jsonify({"erro": "Nenhum arquivo enviado"}), 400
 
-    cfg  = _frota_cfg(request.args.get("frota") or request.form.get("frota"))
     nome = (f.filename or "").lower()
     if nome.endswith((".ofx", ".qfx")):
-        dados, erro = _asaas_ler_ofx(f, cfg)
+        dados, erro = _asaas_ler_ofx(f)
     elif nome.endswith((".xlsx", ".xlsm")):
-        dados, erro = _asaas_ler_xlsx(f, cfg)
+        dados, erro = _asaas_ler_xlsx(f)
     else:
         return jsonify({"erro": "Formato não suportado — envie o extrato em .xlsx ou .ofx"}), 400
 
@@ -689,7 +586,7 @@ def api_asaas_parse():
         vistas.add(k)
         unicas.append(t)
     dados["transacoes"] = unicas
-    dados["totais"] = _asaas_totais(unicas, cfg)
+    dados["totais"] = _asaas_totais(unicas)
 
     return jsonify(dados)
 
@@ -699,14 +596,13 @@ def api_asaas_salvar():
     dados = request.get_json(force=True)
     if not dados:
         return jsonify({"erro": "Sem dados"}), 400
-    sb  = _supabase()
-    cfg = _frota_cfg(dados.get("frota") or request.args.get("frota"))
+    sb = _supabase()
 
     # Remove lançamentos já presentes em extratos salvos (períodos sobrepostos)
     transacoes = dados.get("transacoes", [])
     ja_salvas = set()
     try:
-        antigos = _asaas_query_frota(sb, cfg["slug"]).execute()
+        antigos = sb.table("asaas_extratos").select("transacoes").execute()
         for row in (antigos.data or []):
             for t in (row.get("transacoes") or []):
                 ja_salvas.add(_asaas_chave(t))
@@ -726,16 +622,13 @@ def api_asaas_salvar():
         return jsonify({"ok": False, "duplicadas": duplicadas,
                         "erro": "Todos os %d lançamentos deste arquivo já constam em extratos salvos." % duplicadas}), 409
 
-    novo_extrato = {
+    res = sb.table("asaas_extratos").insert({
         "periodo":       dados.get("periodo", ""),
         "saldo_inicial": dados.get("saldo_inicial"),
         "saldo_final":   dados.get("saldo_final"),
-        "totais":        _asaas_totais(novas, cfg),
+        "totais":        _asaas_totais(novas),
         "transacoes":    novas,
-    }
-    if _ASAAS_TEM_COLUNA_FROTA:
-        novo_extrato["frota"] = cfg["slug"]
-    res = sb.table("asaas_extratos").insert(novo_extrato).execute()
+    }).execute()
     row = (res.data or [{}])[0]
     return jsonify({"ok": True, "id": row.get("id"), "duplicadas": duplicadas})
 
@@ -743,8 +636,7 @@ def api_asaas_salvar():
 @app.route("/api/asaas-extratos")
 def api_asaas_extratos():
     sb = _supabase()
-    cfg = _frota_cfg(request.args.get("frota"))
-    res = _asaas_query_frota(sb, cfg["slug"], "*").execute()
+    res = sb.table("asaas_extratos").select("*").order("created_at").execute()
     extratos = []
     for row in (res.data or []):
         txs = _asaas_reclassificar(row.get("transacoes", []) or [])
@@ -753,36 +645,10 @@ def api_asaas_extratos():
             "periodo":      row.get("periodo", ""),
             "saldo_inicial": row.get("saldo_inicial"),
             "saldo_final":  row.get("saldo_final"),
-            "totais":       _asaas_totais(txs, cfg),
+            "totais":       _asaas_totais(txs),
             "transacoes":   txs,
         })
     return jsonify(extratos)
-
-
-_ASAAS_TEM_COLUNA_FROTA = None   # descoberto na 1ª consulta
-
-
-def _asaas_query_frota(sb, slug, colunas="transacoes"):
-    """
-    Consulta os extratos de uma frota.
-
-    A coluna `frota` foi acrescentada depois que a tabela já existia; enquanto o
-    banco não for migrado, todos os extratos são tratados como da frota padrão.
-    Migração:
-        ALTER TABLE asaas_extratos ADD COLUMN frota text NOT NULL DEFAULT 'luz-divina';
-    """
-    global _ASAAS_TEM_COLUNA_FROTA
-    q = sb.table("asaas_extratos").select(colunas).order("created_at")
-    if _ASAAS_TEM_COLUNA_FROTA is False:
-        return q
-    try:
-        filtrada = sb.table("asaas_extratos").select(colunas).eq("frota", slug).order("created_at")
-        filtrada.execute()
-        _ASAAS_TEM_COLUNA_FROTA = True
-        return filtrada
-    except Exception:
-        _ASAAS_TEM_COLUNA_FROTA = False
-        return q
 
 
 @app.route("/api/rentabilidade-real")
@@ -796,14 +662,14 @@ def api_rentabilidade_real():
     são garantia, não receita do investidor.
     """
     from datetime import timedelta
-    cfg = _frota_cfg(request.args.get("frota"))
+    _SEMANA_VALOR = 1200
 
     # 1) Recebimentos por (motorista, segunda-feira)
     sb = _supabase()
     transacoes, vistas = [], set()
     if sb:
         try:
-            res = _asaas_query_frota(sb, cfg["slug"]).execute()
+            res = sb.table("asaas_extratos").select("transacoes").order("created_at").execute()
             for row in (res.data or []):
                 for t in _asaas_reclassificar(row.get("transacoes") or []):
                     k = _asaas_chave(t)
@@ -824,7 +690,7 @@ def api_rentabilidade_real():
             continue
         seg   = d - timedelta(days=d.weekday())
         # Na adesão só a 1ª semana é aluguel; o restante é caução
-        valor = max(t["valor"] - cfg["caucao"], 0) if t["categoria"] == "adesao" else t["valor"]
+        valor = _SEMANA_VALOR if t["categoria"] == "adesao" else t["valor"]   # devolução entra negativa
         nome  = (t.get("motorista") or "").upper()
         por_motorista.setdefault(nome, {})
         por_motorista[nome][seg] = por_motorista[nome].get(seg, 0) + valor
@@ -845,7 +711,7 @@ def api_rentabilidade_real():
     devolucao_por_placa = {}
     for nome_dev, data_dev, valor_dev in devolucoes:
         melhor_placa, melhor_de = None, None
-        for placa, periodos in cfg["ocupacao"].items():
+        for placa, periodos in _FROTA_OCUPACAO.items():
             for nome, de, _ate in periodos:
                 if nome.upper() != nome_dev:
                     continue
@@ -860,7 +726,7 @@ def api_rentabilidade_real():
     hoje    = date.today()
     veiculos = []
 
-    for placa, periodos in cfg["ocupacao"].items():
+    for placa, periodos in _FROTA_OCUPACAO.items():
         semanas, recebido, ocupantes = 0, 0.0, []
         for nome, de, ate in periodos:
             d_ini = datetime.strptime(de, "%Y-%m-%d").date()
@@ -878,7 +744,7 @@ def api_rentabilidade_real():
 
         # Semanas fora de locação por manutenção / uso como carro reserva
         paradas, sem_paradas = [], 0
-        for motivo, de, ate in cfg["indisponivel"].get(placa, []):
+        for motivo, de, ate in _FROTA_INDISPONIVEL.get(placa, []):
             d_ini = datetime.strptime(de, "%Y-%m-%d").date()
             d_fim = min(datetime.strptime(ate, "%Y-%m-%d").date() if ate else hoje, hoje)
             n = 0
@@ -898,13 +764,12 @@ def api_rentabilidade_real():
             "modelo":             modelos.get(placa, ""),
             "semanas_ativas":     semanas,
             "recebido_total":     round(recebido, 2),
-            "recebido_investidor": round(recebido * cfg["cota_investidor"], 2),
+            "recebido_investidor": round(recebido * _FROTA_COTA_INVESTIDOR, 2),
             "ocupantes":          ocupantes,
         })
 
     veiculos.sort(key=lambda v: v["placa"])
-    return jsonify({"ok": True, "frota": cfg["slug"], "veiculos": veiculos,
-                    "custos": _frota_custo_anual(cfg)})
+    return jsonify({"ok": True, "veiculos": veiculos})
 
 
 @app.route("/api/asaas-extratos/<extrato_id>", methods=["DELETE"])
@@ -6206,9 +6071,7 @@ def pagina_contratos():
 
 
 @app.route("/insights/frota")
-@app.route("/insights/frota/<frota>")
-def pagina_frota(frota=None):
-    cfg = _frota_cfg(frota)
+def pagina_frota():
     veiculos, codigos, erro = _ler_frota_dados()
     manual = _frota_ler_manual()
     curr_key, curr_label, prev_key, prev_label = _frota_mes_atual()
@@ -6225,9 +6088,6 @@ def pagina_frota(frota=None):
         prev_mes_label=prev_label,
         sob_adm=sob_adm,
         sob_adm_erro=sob_adm_erro,
-        frota=cfg,
-        frota_custos=_frota_custo_anual(cfg),
-        frotas=[{"slug": k, "nome": v["nome"]} for k, v in _FROTAS.items()],
     )
 
 
