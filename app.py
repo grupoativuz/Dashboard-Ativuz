@@ -418,7 +418,7 @@ _FROTAS = {
     "joao-paulo": {
         "nome":            "João Paulo",
         "investidor":      "JOÃO PAULO CONSÓRCIOS",
-        "modelo":          "POLO TRACK",
+        "modelo":          "",          # preenchido quando as placas entrarem na planilha da frota
         "valor_semanal":   775.0,       # média das duas; o valor real é por veículo (veja "veiculos")
         "caucao":          1200.0,
         "semana_minima":   750.0,
@@ -427,7 +427,7 @@ _FROTAS = {
         "deprec_pct":      7.8,
         "seguro_anual":    0.0,         # não informado
         "seguro_parcelas": 1,
-        "km_ano":          78000,       # 1.500 km/semana
+        "km_ano":          0,           # não informado — trava o custo de óleo/filtro
         "revisoes":        [],          # sem plano fechado de fábrica; ver manutencao_itens
         "revisao_km":      0,
         "veiculos": {
@@ -440,16 +440,9 @@ _FROTAS = {
         "manutencao_itens": [
             {"label": "Pneus (4 × R$ 260, 1× ao ano)",              "valor_ano": 1040.0},
             {"label": "Alinhamento e balanceamento (R$ 50, 4× ao ano)", "valor_ano": 200.0},
-            {"label": "Óleo e filtro (a cada 10.000 km)",           "valor": 147.45, "km": 10000},
+            {"label": "Óleo e filtro (a cada 10.000 km)",           "valor": 0.0, "km": 10000},
         ],
-        # Peças eventuais não são orçáveis item a item — reserva de 5% da receita bruta
-        "provisao_pct": 5.0,
-        # Semeada pela planilha de contratos (início da locação); confirmar contra o
-        # 1º recebimento de cada motorista quando o extrato for importado.
-        "ocupacao": {
-            "STX-6G05": [("ANNY KATARINA ACIOLE DA SILVA",  "2026-05-04", None)],
-            "SSW-1A28": [("ELIONILSON CORDEIRO BARBOSA",    "2026-03-16", None)],
-        },
+        "ocupacao":     {},   # definida a partir do 1º recebimento de cada motorista no extrato
         "indisponivel": {},
     },
 }
@@ -462,7 +455,7 @@ _FROTA_DEFAULTS = {
     "caucao": 3000.0, "semana_minima": 1200.0,
     "cota_investidor": 0.85, "aquisicao": 0.0, "deprec_pct": 7.8,
     "seguro_anual": 0.0, "seguro_parcelas": 1, "km_ano": 0,
-    "revisoes": [], "revisao_km": 20000, "manutencao_itens": [], "provisao_pct": 0.0,
+    "revisoes": [], "revisao_km": 20000, "manutencao_itens": [],
     "veiculos": {}, "ocupacao": {}, "indisponivel": {},
 }
 
@@ -494,7 +487,6 @@ def _frota_custo_anual(cfg):
         "manutencao":  round(manutencao, 2),
         "seguro":      round(cfg.get("seguro_anual", 0), 2),
         "depreciacao": round(deprec, 2),
-        "provisao_pct": cfg.get("provisao_pct", 0.0),
         "pendentes":   pendentes,   # itens sem valor/km — custo subestimado enquanto houver
     }
 
@@ -714,7 +706,8 @@ def api_asaas_salvar():
     transacoes = dados.get("transacoes", [])
     ja_salvas = set()
     try:
-        for row in _asaas_extratos_da_frota(sb, cfg["slug"]):
+        antigos = _asaas_query_frota(sb, cfg["slug"]).execute()
+        for row in (antigos.data or []):
             for t in (row.get("transacoes") or []):
                 ja_salvas.add(_asaas_chave(t))
     except Exception:
@@ -751,8 +744,9 @@ def api_asaas_salvar():
 def api_asaas_extratos():
     sb = _supabase()
     cfg = _frota_cfg(request.args.get("frota"))
+    res = _asaas_query_frota(sb, cfg["slug"], "*").execute()
     extratos = []
-    for row in _asaas_extratos_da_frota(sb, cfg["slug"], "*"):
+    for row in (res.data or []):
         txs = _asaas_reclassificar(row.get("transacoes", []) or [])
         extratos.append({
             "id":           row["id"],
@@ -768,32 +762,27 @@ def api_asaas_extratos():
 _ASAAS_TEM_COLUNA_FROTA = None   # descoberto na 1ª consulta
 
 
-def _asaas_extratos_da_frota(sb, slug, colunas="transacoes"):
+def _asaas_query_frota(sb, slug, colunas="transacoes"):
     """
-    Lê os extratos de uma frota e devolve as linhas.
+    Consulta os extratos de uma frota.
 
-    A coluna `frota` foi acrescentada depois que a tabela já existia. Se o banco
-    ainda não tiver a coluna — ou se o PostgREST ainda não recarregou o schema —
-    a consulta filtrada falha e caímos na tabela inteira, tratada como frota
-    padrão. Migração:
+    A coluna `frota` foi acrescentada depois que a tabela já existia; enquanto o
+    banco não for migrado, todos os extratos são tratados como da frota padrão.
+    Migração:
         ALTER TABLE asaas_extratos ADD COLUMN frota text NOT NULL DEFAULT 'luz-divina';
     """
     global _ASAAS_TEM_COLUNA_FROTA
-    if sb is None:
-        return []
-    if _ASAAS_TEM_COLUNA_FROTA is not False:
-        try:
-            res = (sb.table("asaas_extratos").select(colunas)
-                     .eq("frota", slug).order("created_at").execute())
-            _ASAAS_TEM_COLUNA_FROTA = True
-            return res.data or []
-        except Exception:
-            _ASAAS_TEM_COLUNA_FROTA = False
+    q = sb.table("asaas_extratos").select(colunas).order("created_at")
+    if _ASAAS_TEM_COLUNA_FROTA is False:
+        return q
     try:
-        res = sb.table("asaas_extratos").select(colunas).order("created_at").execute()
-        return res.data or []
+        filtrada = sb.table("asaas_extratos").select(colunas).eq("frota", slug).order("created_at")
+        filtrada.execute()
+        _ASAAS_TEM_COLUNA_FROTA = True
+        return filtrada
     except Exception:
-        return []
+        _ASAAS_TEM_COLUNA_FROTA = False
+        return q
 
 
 @app.route("/api/rentabilidade-real")
@@ -814,7 +803,8 @@ def api_rentabilidade_real():
     transacoes, vistas = [], set()
     if sb:
         try:
-            for row in _asaas_extratos_da_frota(sb, cfg["slug"]):
+            res = _asaas_query_frota(sb, cfg["slug"]).execute()
+            for row in (res.data or []):
                 for t in _asaas_reclassificar(row.get("transacoes") or []):
                     k = _asaas_chave(t)
                     if k in vistas:
