@@ -2476,7 +2476,7 @@ document.addEventListener('click', function(e) {
 
   window.asaasExcluir = function(id) {
     if (!confirm('Remover este extrato?')) return;
-    fetch('/api/asaas-extratos/' + id, { method: 'DELETE' })
+    fetch('/api/asaas-extratos/' + id + '?frota=luz-divina', { method: 'DELETE' })
       .then(function() {
         _extratos = _extratos.filter(function(e) { return e.id !== id; });
         _renderChips();
@@ -3297,7 +3297,8 @@ document.addEventListener('click', function(e) {
 /* ══ CONCILIAÇÃO ASAAS — Frota João Paulo ══ */
 /* ══ CONCILIAÇÃO ASAAS ══ */
 (function () {
-  var FROTA_SLUG = 'joao-paulo';   /* Frota João Paulo — Polos */
+  var FROTA_SLUG     = 'joao-paulo';   /* Frota João Paulo — Polos */
+  var CAUCAO_PADRAO  = 1200;           /* caução do contrato desta frota */
 
   var _extratos = [];   // lista de extratos salvos
   var _dadosGlobais = null;  // dados combinados exibidos
@@ -3341,7 +3342,7 @@ document.addEventListener('click', function(e) {
       });
     });
     /* Recalcula totais das transações já deduplicadas */
-    var CAUCAO = 1200;
+    var CAUCAO = CAUCAO_PADRAO;
     var totais = {};
     transacoes.forEach(function(t) {
       if (!t.relevante) return;
@@ -3511,7 +3512,7 @@ document.addEventListener('click', function(e) {
   }
 
   function _renderMotoristas(transacoes) {
-    var CAUCAO = 1200;
+    var CAUCAO = CAUCAO_PADRAO;
     var map = {};
     transacoes.forEach(function(t) {
       if (['aluguel','adesao','caucao','devolucao_caucao','devolucao_aluguel'].indexOf(t.categoria) < 0) return;
@@ -3521,8 +3522,8 @@ document.addEventListener('click', function(e) {
       if (t.categoria === 'devolucao_aluguel') { map[nome].aluguel += t.valor; return; }
       if (t.categoria === 'aluguel') { map[nome].aluguel += t.valor; }
       if (t.categoria === 'adesao')  {
-        map[nome].aluguel += SEMANA;                          // 1ª semana conta como aluguel
-        map[nome].caucao  += Math.max(t.valor - CAUCAO, 0);  // restante é caução
+        map[nome].caucao  += CAUCAO;                          // caução do contrato
+        map[nome].aluguel += Math.max(t.valor - CAUCAO, 0);  // restante é a 1ª semana
       }
       if (t.categoria === 'caucao') { map[nome].caucao += t.valor; return; }
       /* Semanas = segundas distintas com recebimento (adesão inclusa) */
@@ -3659,12 +3660,12 @@ document.addEventListener('click', function(e) {
       var seg = _segundaDaSemana(t.data);
       if (seg) motorMap[nome].semanas[seg] = true;
     });
-    var SEMANA_V = 1200;
+    var SEMANA_V = CAUCAO_PADRAO;
     var totAluguel = 0, totCaucao = 0, totSemanas = 0;
     var rowsMotoristas = Object.keys(motorMap).sort().map(function(nome) {
       var m = motorMap[nome];
-      var aluguel = m.aluguel + (m.adesao > 0 ? SEMANA_V : 0);
-      var caucao  = (m.adesao > 0 ? Math.max(m.adesao - SEMANA_V, 0) : 0) + m.caucao;
+      var aluguel = m.aluguel + Math.max(m.adesao - (m.adesao > 0 ? SEMANA_V : 0), 0);
+      var caucao  = (m.adesao > 0 ? SEMANA_V : 0) + m.caucao;
       var total   = aluguel + caucao;
       var nSem = Object.keys(m.semanas).length;
       totAluguel += aluguel; totCaucao += caucao; totSemanas += nSem;

@@ -851,7 +851,17 @@ def api_rentabilidade_real():
 
 @app.route("/api/asaas-extratos/<extrato_id>", methods=["DELETE"])
 def api_asaas_excluir(extrato_id):
-    sb = _supabase()
+    sb   = _supabase()
+    slug = _frota_slug(request.args.get("frota"))
+    # Só apaga se o extrato for da frota que pediu — evita remover o de outro
+    # investidor por id trocado.
+    alvo = _sb_retry(lambda: sb.table("asaas_extratos").select("id,frota")
+                               .eq("id", extrato_id).execute())
+    linha = (alvo.data or [None])[0]
+    if not linha:
+        return jsonify({"ok": False, "erro": "Extrato não encontrado."}), 404
+    if (linha.get("frota") or _FROTA_PADRAO) != slug:
+        return jsonify({"ok": False, "erro": "Este extrato pertence a outra frota."}), 403
     sb.table("asaas_extratos").delete().eq("id", extrato_id).execute()
     return jsonify({"ok": True})
 
