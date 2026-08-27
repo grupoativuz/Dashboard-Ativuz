@@ -186,7 +186,9 @@
       "Bash(ps -eo pid,lstart,command)",
       "Bash(pkill -f \"python app.py\")",
       "Bash(ps -eo pid,command)",
-      "Bash(kill -9 64374)"
+      "Bash(kill -9 64374)",
+      "Bash(awk 'NR>=1290 && NR<=1300' templates/frota.html)",
+      "Bash(grep -n \"^\\(function\\\\|^}\\)\\(\\);\\\\|^}\\)\\(\\); *$\" templates/frota.html)"
     ]
   }
 }
