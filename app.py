@@ -35,6 +35,19 @@ def _inject_vistoria_app_url():
     return {"vistoria_app_url": VISTORIA_APP_URL}
 
 
+@app.after_request
+def _sem_cache_html(resp):
+    """
+    Páginas são geradas a cada requisição — servir HTML do cache faz o navegador
+    exibir versões antigas depois de um deploy, o que já custou horas de
+    diagnóstico. Estáticos seguem cacheáveis.
+    """
+    if resp.mimetype == "text/html":
+        resp.headers["Cache-Control"] = "no-store, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+    return resp
+
+
 @app.errorhandler(Exception)
 def handle_any_error(e):
     import traceback; traceback.print_exc()
