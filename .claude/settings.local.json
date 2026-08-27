@@ -191,7 +191,9 @@
       "Bash(grep -n \"^\\(function\\\\|^}\\)\\(\\);\\\\|^}\\)\\(\\); *$\" templates/frota.html)",
       "Bash(npm init *)",
       "Bash(npm i *)",
-      "Bash(pkill -9 -f \"app.py\")"
+      "Bash(pkill -9 -f \"app.py\")",
+      "Bash(awk 'NR>=760 && NR<=790 && /<\\\\/div>|inv-section|tab-/' templates/frota.html)",
+      "Bash(grep -v \"^\\\\s*[0-9]*:<script>$\")"
     ]
   }
 }
