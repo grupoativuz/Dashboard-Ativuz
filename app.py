@@ -294,6 +294,7 @@ def _frota_cfg(valor=None):
 # ficam fora de todos os totais e da tabela por motorista.
 _ASAAS_NAO_VEICULO = (
     "gelo e gela conveniencia",
+    "juan e ivan conveniencia",
 )
 
 
