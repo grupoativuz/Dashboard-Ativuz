@@ -2143,7 +2143,10 @@ function renderComparacao(data) {
     { label: 'BYD (Elétrico)', cls: 'byd', valor_semanal: 1200, aquisicao: params.aquisicao }
   ];
   var html = modelos.map(function(m) {
-    var p = { aquisicao: m.aquisicao, manutencao: params.manutencao, ipva_total: params.ipva_total, depreciacao_pct: params.depreciacao_pct };
+    /* Copia todos os parâmetros e troca só a aquisição — montar o objeto à mão
+       fazia o seguro sumir e o cálculo virar NaN. */
+    var p = {}; for (var k in params) p[k] = params[k];
+    p.aquisicao = m.aquisicao;
     var c = calcMetrics(m.valor_semanal, p);
     var diffCDI  = (c.yield_aa - CDI_AA).toFixed(1);
     var diffPoup = (c.yield_aa - POUP_AA).toFixed(1);
@@ -3094,7 +3097,10 @@ function renderComparacao(data) {
     { label: 'POLO TRACK', cls: 'byd', valor_semanal: SEMANAL_PADRAO, aquisicao: params.aquisicao }
   ];
   var html = modelos.map(function(m) {
-    var p = { aquisicao: m.aquisicao, manutencao: params.manutencao, ipva_total: params.ipva_total, depreciacao_pct: params.depreciacao_pct };
+    /* Copia todos os parâmetros e troca só a aquisição — montar o objeto à mão
+       fazia o seguro sumir e o cálculo virar NaN. */
+    var p = {}; for (var k in params) p[k] = params[k];
+    p.aquisicao = m.aquisicao;
     var c = calcMetrics(m.valor_semanal, p);
     var diffCDI  = (c.yield_aa - CDI_AA).toFixed(1);
     var diffPoup = (c.yield_aa - POUP_AA).toFixed(1);
