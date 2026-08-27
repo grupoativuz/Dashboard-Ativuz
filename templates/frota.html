@@ -1370,6 +1370,19 @@ function valorAtual(v) {
   return { val: null, fonte: 'planilha', ref: '—', em: null };
 }
 
+/* VEICULOS e valorAtual são privados desta IIFE; o bloco de investidores
+   precisa da FIPE, então ela é exposta por aqui. */
+window._fipeMediaModelo = function (alvo) {
+  var vals = [];
+  VEICULOS.forEach(function (v) {
+    if ((v.modelo || '').toUpperCase().indexOf(alvo) < 0) return;
+    var a = valorAtual(v);
+    if (a && a.val != null) vals.push(a.val);
+  });
+  if (!vals.length) return null;
+  return vals.reduce(function (x, y) { return x + y; }, 0) / vals.length;
+};
+
 /* Valor "prev" = valor do mês anterior para comparação */
 function valorPrev(v) {
   var sp = v[PREV_MES_KEY];
@@ -1879,14 +1892,8 @@ function brl(v) {
 
 /* FIPE atual do BYD Dolphin Mini (média dos veículos do sistema) */
 function fipeBYD() {
-  var vals = [];
-  VEICULOS.forEach(function(v) {
-    if ((v.modelo || '').toUpperCase().indexOf('DOLPHIN') < 0) return;
-    var a = valorAtual(v);
-    if (a && a.val != null) vals.push(a.val);
-  });
-  if (!vals.length) return 114375;   // fallback: FIPE AGO/26
-  return vals.reduce(function(x, y) { return x + y; }, 0) / vals.length;
+  var media = window._fipeMediaModelo ? window._fipeMediaModelo('DOLPHIN') : null;
+  return media != null ? media : 114375;   // fallback: FIPE AGO/26
 }
 
 /* IPVA anual = 1% da FIPE (7 parcelas) + licenciamento + taxa de bombeiros */
@@ -2149,10 +2156,14 @@ function renderProjecao(data) {
 /* ── Entry point ── */
 window.invRenderAll = function() {
   var data = window._getAdmData ? window._getAdmData() : null;
-  renderExecSummary();
-  renderComparacao(data);
-  renderPaybackChart();
-  renderProjecao(data);
+  /* Isolados: uma exceção num bloco deixava a aba inteira em "Carregando dados..." */
+  [['resumo', function(){ renderExecSummary(); }],
+   ['comparação', function(){ renderComparacao(data); }],
+   ['payback', function(){ renderPaybackChart(); }],
+   ['projeção', function(){ renderProjecao(data); }]].forEach(function(par) {
+    try { par[1](); }
+    catch (e) { console.error('[investidores] falha em ' + par[0] + ':', e); }
+  });
 };
 
 /* ── Modal: Rentabilidade Líquida Real ── */
