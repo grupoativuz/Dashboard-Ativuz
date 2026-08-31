@@ -3,78 +3,78 @@
 
 {% block head %}
 <style>
-.ad-wrap { width: 100%; }
+.an-wrap { width: 100%; }
 
 /* ── Header ── */
-.ad-header { margin-bottom: 24px; text-align: left; }
-.ad-header h1 { font-size: 20px; font-weight: 700; color: var(--ink); margin: 0 0 4px; }
-.ad-header p  { font-size: 13px; color: var(--ink-3); margin: 0; }
+.an-header { margin-bottom: 24px; text-align: left; }
+.an-header h1 { font-size: 20px; font-weight: 700; color: var(--ink); margin: 0 0 4px; }
+.an-header p  { font-size: 13px; color: var(--ink-3); margin: 0; }
 
 /* ── KPI cards ── */
-.ad-kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 32px; }
-@media (max-width: 1100px) { .ad-kpis { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 640px)  { .ad-kpis { grid-template-columns: repeat(2, 1fr); } }
-.ad-kpi {
+.an-kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 32px; }
+@media (max-width: 1100px) { .an-kpis { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px)  { .an-kpis { grid-template-columns: repeat(2, 1fr); } }
+.an-kpi {
   background: var(--surface); border: 1px solid var(--line);
   border-radius: 12px; padding: 14px 16px;
 }
-.ad-kpi-label {
+.an-kpi-label {
   font-size: 10px; font-weight: 700; text-transform: uppercase;
   letter-spacing: .05em; color: var(--ink-3); margin-bottom: 8px;
 }
-.ad-kpi-value {
+.an-kpi-value {
   font-size: 19px; font-weight: 700; color: var(--ink-3);
   line-height: 1; font-variant-numeric: tabular-nums;
 }
 
 /* ── Sections ── */
-.ad-section { margin-bottom: 32px; }
-.ad-chart-wrap { position: relative; height: 300px; }
-.ad-filtro { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; }
-.ad-filtro select { padding:6px 10px; border:1px solid var(--line, #d8dee9); border-radius:8px;
+.an-section { margin-bottom: 32px; }
+.an-chart-wrap { position: relative; height: 300px; }
+.an-filtro { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; }
+.an-filtro select { padding:6px 10px; border:1px solid var(--line, #d8dee9); border-radius:8px;
   background: var(--card, #fff); color: var(--ink, #1c2430); font-size:13px; }
-.ad-tabela { width:100%; border-collapse:collapse; font-size:13px; }
-.ad-tabela th, .ad-tabela td { padding:9px 10px; border-bottom:1px solid var(--line, #eef1f5); text-align:left; }
-.ad-tabela th { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-3, #7b8794); }
-.ad-tabela .num { text-align:right; font-variant-numeric: tabular-nums; }
-.ad-tabela .pos { color: var(--ink-3, #7b8794); width:34px; }
-.ad-section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 6px; }
-.ad-section-title { font-size: 15px; font-weight: 700; color: var(--ink); }
-.ad-section-sub   { font-size: 12px; color: var(--ink-3); }
+.an-tabela { width:100%; border-collapse:collapse; font-size:13px; }
+.an-tabela th, .an-tabela td { padding:9px 10px; border-bottom:1px solid var(--line, #eef1f5); text-align:left; }
+.an-tabela th { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-3, #7b8794); }
+.an-tabela .num { text-align:right; font-variant-numeric: tabular-nums; }
+.an-tabela .pos { color: var(--ink-3, #7b8794); width:34px; }
+.an-section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 6px; }
+.an-section-title { font-size: 15px; font-weight: 700; color: var(--ink); }
+.an-section-sub   { font-size: 12px; color: var(--ink-3); }
 
-.ad-placeholder {
+.an-placeholder {
   border: 1px dashed var(--line); border-radius: 12px;
   background: var(--surface);
   min-height: 220px;
   display: flex; align-items: center; justify-content: center;
   color: var(--ink-3); font-size: 13px; text-align: center; padding: 24px;
 }
-.ad-placeholder-tag {
+.an-placeholder-tag {
   display: inline-block; margin-top: 6px;
   font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
   color: var(--brand-orange, #FF4713);
 }
 
-.ad-split { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
-@media (max-width: 900px) { .ad-split { grid-template-columns: 1fr; } }
+.an-split { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .an-split { grid-template-columns: 1fr; } }
 
-.ad-mini-cards { display: flex; flex-direction: column; gap: 12px; }
-.ad-mini-card {
+.an-mini-cards { display: flex; flex-direction: column; gap: 12px; }
+.an-mini-card {
   background: var(--surface); border: 1px solid var(--line);
   border-radius: 12px; padding: 14px 16px; flex: 1;
 }
-.ad-mini-card .ad-kpi-label { margin-bottom: 6px; }
-.ad-mini-card .ad-kpi-value { font-size: 17px; }
+.an-mini-card .an-kpi-label { margin-bottom: 6px; }
+.an-mini-card .an-kpi-value { font-size: 17px; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="ad-wrap">
+<div class="an-wrap">
 
-  <div class="ad-header">
+  <div class="an-header">
     <h1>Análise de Dados</h1>
     <p>Alavancagem, receita e indicadores operacionais da Ativuz — período: <strong>{{ kpis.periodo }}</strong>.</p>
-    <form method="get" class="ad-filtro">
+    <form method="get" class="an-filtro">
       <label for="periodo">Período:</label>
       <select name="periodo" id="periodo" onchange="this.form.submit()">
         <option value="12m" {{ 'selected' if periodo_sel == '12m' }}>Últimos 12 meses</option>
@@ -86,81 +86,81 @@
   </div>
 
   <!-- ── KPIs no topo ── -->
-  <div class="ad-kpis">
-    <div class="ad-kpi">
-      <div class="ad-kpi-label">Receita Líquida (12m)</div>
-      <div class="ad-kpi-value">{{ kpis.receita_liquida }}</div>
+  <div class="an-kpis">
+    <div class="an-kpi">
+      <div class="an-kpi-label">Receita Líquida (12m)</div>
+      <div class="an-kpi-value">{{ kpis.receita_liquida }}</div>
     </div>
-    <div class="ad-kpi">
-      <div class="ad-kpi-label">EBITDA (12m)</div>
-      <div class="ad-kpi-value">{{ kpis.ebitda }}</div>
-      <div class="ad-kpi-label" style="margin-top:4px">margem {{ kpis.margem_ebitda }}</div>
+    <div class="an-kpi">
+      <div class="an-kpi-label">EBITDA (12m)</div>
+      <div class="an-kpi-value">{{ kpis.ebitda }}</div>
+      <div class="an-kpi-label" style="margin-top:4px">margem {{ kpis.margem_ebitda }}</div>
     </div>
-    <div class="ad-kpi">
-      <div class="ad-kpi-label">Saldo Devedor</div>
-      <div class="ad-kpi-value">{{ kpis.saldo_devedor }}</div>
-      <div class="ad-kpi-label" style="margin-top:4px">CP {{ kpis.div_curto }}</div>
+    <div class="an-kpi">
+      <div class="an-kpi-label">Saldo Devedor</div>
+      <div class="an-kpi-value">{{ kpis.saldo_devedor }}</div>
+      <div class="an-kpi-label" style="margin-top:4px">CP {{ kpis.div_curto }}</div>
     </div>
-    <div class="ad-kpi">
-      <div class="ad-kpi-label">Dívida / EBITDA</div>
-      <div class="ad-kpi-value">{{ kpis.div_ebitda }}</div>
+    <div class="an-kpi">
+      <div class="an-kpi-label">Dívida / EBITDA</div>
+      <div class="an-kpi-value">{{ kpis.div_ebitda }}</div>
       {% if kpis.n_nao_iniciados %}
-      <div class="ad-kpi-label" style="margin-top:4px">{{ kpis.div_ebitda_curso }} em curso</div>
+      <div class="an-kpi-label" style="margin-top:4px">{{ kpis.div_ebitda_curso }} em curso</div>
       {% endif %}
       
     </div>
-    <div class="ad-kpi">
-      <div class="ad-kpi-label">Valor da Frota (FIPE)</div>
-      <div class="ad-kpi-value">{{ kpis.frota_fipe }}</div>
-      <div class="ad-kpi-label" style="margin-top:4px">{{ kpis.frota_veiculos }} veículos</div>
+    <div class="an-kpi">
+      <div class="an-kpi-label">Valor da Frota (FIPE)</div>
+      <div class="an-kpi-value">{{ kpis.frota_fipe }}</div>
+      <div class="an-kpi-label" style="margin-top:4px">{{ kpis.frota_veiculos }} veículos</div>
     </div>
-    <div class="ad-kpi">
-      <div class="ad-kpi-label">Taxa de Inadimplência</div>
-      <div class="ad-kpi-value">{{ kpis.taxa_inad }}</div>
-      <div class="ad-kpi-label" style="margin-top:4px">{{ kpis.inad_total }} · {{ kpis.inad_casos }} casos</div>
+    <div class="an-kpi">
+      <div class="an-kpi-label">Taxa de Inadimplência</div>
+      <div class="an-kpi-value">{{ kpis.taxa_inad }}</div>
+      <div class="an-kpi-label" style="margin-top:4px">{{ kpis.inad_total }} · {{ kpis.inad_casos }} casos</div>
     </div>
   </div>
 
   <!-- ── Receita & Margens ── -->
-  <div class="ad-section">
-    <div class="ad-section-head">
+  <div class="an-section">
+    <div class="an-section-head">
       <div>
-        <div class="ad-section-title">Receita &amp; Margens</div>
-        <div class="ad-section-sub">Receita líquida e margem EBITDA, mês a mês — 12 meses móveis ({{ kpis.periodo }})</div>
+        <div class="an-section-title">Receita &amp; Margens</div>
+        <div class="an-section-sub">Receita líquida e margem EBITDA, mês a mês — 12 meses móveis ({{ kpis.periodo }})</div>
       </div>
     </div>
-    <div class="ad-chart-wrap"><canvas id="chart-receita"></canvas></div>
+    <div class="an-chart-wrap"><canvas id="chart-receita"></canvas></div>
   </div>
 
   <!-- ── Alavancagem ── -->
-  <div class="ad-section">
-    <div class="ad-section-head">
+  <div class="an-section">
+    <div class="an-section-head">
       <div>
-        <div class="ad-section-title">Alavancagem</div>
-        <div class="ad-section-sub">Saldo devedor reconstruído mês a mês + Dívida/EBITDA, e corte curto x longo prazo</div>
+        <div class="an-section-title">Alavancagem</div>
+        <div class="an-section-sub">Saldo devedor reconstruído mês a mês + Dívida/EBITDA, e corte curto x longo prazo</div>
       </div>
     </div>
-    <div class="ad-split">
-      <div class="ad-chart-wrap"><canvas id="chart-divida"></canvas></div>
-      <div class="ad-mini-cards">
-        <div class="ad-mini-card">
-          <div class="ad-kpi-label">Curto Prazo (até 12m)</div>
-          <div class="ad-kpi-value">{{ kpis.div_curto }}</div>
+    <div class="an-split">
+      <div class="an-chart-wrap"><canvas id="chart-divida"></canvas></div>
+      <div class="an-mini-cards">
+        <div class="an-mini-card">
+          <div class="an-kpi-label">Curto Prazo (até 12m)</div>
+          <div class="an-kpi-value">{{ kpis.div_curto }}</div>
         </div>
-        <div class="ad-mini-card">
-          <div class="ad-kpi-label">Longo Prazo</div>
-          <div class="ad-kpi-value">{{ kpis.div_longo }}</div>
+        <div class="an-mini-card">
+          <div class="an-kpi-label">Longo Prazo</div>
+          <div class="an-kpi-value">{{ kpis.div_longo }}</div>
         </div>
         {% if kpis.n_nao_iniciados %}
-        <div class="ad-mini-card">
-          <div class="ad-kpi-label">Ainda não iniciada</div>
-          <div class="ad-kpi-value">{{ kpis.div_nao_iniciada }}</div>
-          <div class="ad-kpi-label" style="margin-top:4px">{{ kpis.n_nao_iniciados }} contrato(s) sem parcela vencida</div>
+        <div class="an-mini-card">
+          <div class="an-kpi-label">Ainda não iniciada</div>
+          <div class="an-kpi-value">{{ kpis.div_nao_iniciada }}</div>
+          <div class="an-kpi-label" style="margin-top:4px">{{ kpis.n_nao_iniciados }} contrato(s) sem parcela vencida</div>
         </div>
-        <div class="ad-mini-card">
-          <div class="ad-kpi-label">Em curso</div>
-          <div class="ad-kpi-value">{{ kpis.div_em_curso }}</div>
-          <div class="ad-kpi-label" style="margin-top:4px">{{ kpis.div_ebitda_curso }} sobre EBITDA</div>
+        <div class="an-mini-card">
+          <div class="an-kpi-label">Em curso</div>
+          <div class="an-kpi-value">{{ kpis.div_em_curso }}</div>
+          <div class="an-kpi-label" style="margin-top:4px">{{ kpis.div_ebitda_curso }} sobre EBITDA</div>
         </div>
         {% endif %}
       </div>
@@ -168,37 +168,37 @@
   </div>
 
   <!-- ── Valor da Frota ── -->
-  <div class="ad-section">
-    <div class="ad-section-head">
+  <div class="an-section">
+    <div class="an-section-head">
       <div>
-        <div class="ad-section-title">Valor da Frota</div>
-        <div class="ad-section-sub">FIPE total da frota vs. valor de aquisição, mês a mês</div>
+        <div class="an-section-title">Valor da Frota</div>
+        <div class="an-section-sub">FIPE total da frota vs. valor de aquisição, mês a mês</div>
       </div>
     </div>
-    <div class="ad-chart-wrap"><canvas id="chart-frota"></canvas></div>
+    <div class="an-chart-wrap"><canvas id="chart-frota"></canvas></div>
   </div>
 
   <!-- ── Inadimplência ── -->
-  <div class="ad-section">
-    <div class="ad-section-head">
+  <div class="an-section">
+    <div class="an-section-head">
       <div>
-        <div class="ad-section-title">Inadimplência</div>
-        <div class="ad-section-sub">Total em atraso por semana</div>
+        <div class="an-section-title">Inadimplência</div>
+        <div class="an-section-sub">Total em atraso por semana</div>
       </div>
     </div>
-    <div class="ad-chart-wrap"><canvas id="chart-inad"></canvas></div>
+    <div class="an-chart-wrap"><canvas id="chart-inad"></canvas></div>
   </div>
 
   <!-- ── Receita por Cliente ── -->
-  <div class="ad-section">
-    <div class="ad-section-head">
+  <div class="an-section">
+    <div class="an-section-head">
       <div>
-        <div class="ad-section-title">Receita por Cliente</div>
-        <div class="ad-section-sub">Top 10 clientes ativos por receita</div>
+        <div class="an-section-title">Receita por Cliente</div>
+        <div class="an-section-sub">Top 10 clientes ativos por receita</div>
       </div>
     </div>
     {% if clientes %}
-    <table class="ad-tabela">
+    <table class="an-tabela">
       <thead><tr><th>#</th><th>Cliente</th><th class="num">Receita</th><th class="num">% do total</th></tr></thead>
       <tbody>
         {% for c in clientes %}
@@ -212,7 +212,7 @@
       </tbody>
     </table>
     {% else %}
-    <div class="ad-placeholder"><div>Sem receita de locação no período</div></div>
+    <div class="an-placeholder"><div>Sem receita de locação no período</div></div>
     {% endif %}
   </div>
 
