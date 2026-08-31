@@ -50,3 +50,6 @@ dist-ssr
 google_credentials.json
 google_token.json
 .vercel
+
+# Bytecode/artefatos
+services/__pycache__/
