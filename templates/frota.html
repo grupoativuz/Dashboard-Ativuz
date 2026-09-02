@@ -2557,7 +2557,7 @@ document.addEventListener('click', function(e) {
   }
 
   /* Motoristas sem contrato ativo — marcados como (desativado) nas tabelas */
-  var _MOTORISTAS_INATIVOS = ['ADRIANO TEOTONIO DA SILVA'];
+  var _MOTORISTAS_INATIVOS = ['ADRIANO TEOTONIO DA SILVA', 'TANIELLE GLAUCIANA SOUZA DA SILVA'];
   function _inativo(nome) {
     return _MOTORISTAS_INATIVOS.indexOf((nome || '').toUpperCase()) >= 0;
   }
@@ -2567,7 +2567,7 @@ document.addEventListener('click', function(e) {
     var map = {};
     transacoes.forEach(function(t) {
       if (['aluguel','adesao','caucao','devolucao_caucao','devolucao_aluguel'].indexOf(t.categoria) < 0) return;
-      var nome = t.motorista || 'Desconhecido';
+      var nome = (t.motorista || 'Desconhecido').toUpperCase();
       if (!map[nome]) map[nome] = { aluguel: 0, caucao: 0, semanas: {} };
       if (t.categoria === 'devolucao_caucao')  { map[nome].caucao  += t.valor; return; }
       if (t.categoria === 'devolucao_aluguel') { map[nome].aluguel += t.valor; return; }
@@ -2701,7 +2701,7 @@ document.addEventListener('click', function(e) {
     var motorMap = {};
     d.transacoes.forEach(function(t) {
       if (['aluguel','adesao','caucao','devolucao_caucao','devolucao_aluguel'].indexOf(t.categoria) < 0) return;
-      var nome = t.motorista || 'Desconhecido';
+      var nome = (t.motorista || 'Desconhecido').toUpperCase();
       if (!motorMap[nome]) motorMap[nome] = {aluguel:0, adesao:0, caucao:0, semanas:{}};
       if (t.categoria === 'devolucao_caucao')  { motorMap[nome].caucao  += t.valor; return; }
       if (t.categoria === 'devolucao_aluguel') { motorMap[nome].aluguel += t.valor; return; }
@@ -3515,7 +3515,7 @@ document.addEventListener('click', function(e) {
   }
 
   /* Motoristas sem contrato ativo — marcados como (desativado) nas tabelas */
-  var _MOTORISTAS_INATIVOS = ['ADRIANO TEOTONIO DA SILVA'];
+  var _MOTORISTAS_INATIVOS = ['ADRIANO TEOTONIO DA SILVA', 'TANIELLE GLAUCIANA SOUZA DA SILVA'];
   function _inativo(nome) {
     return _MOTORISTAS_INATIVOS.indexOf((nome || '').toUpperCase()) >= 0;
   }
@@ -3525,7 +3525,7 @@ document.addEventListener('click', function(e) {
     var map = {};
     transacoes.forEach(function(t) {
       if (['aluguel','adesao','caucao','devolucao_caucao','devolucao_aluguel'].indexOf(t.categoria) < 0) return;
-      var nome = t.motorista || 'Desconhecido';
+      var nome = (t.motorista || 'Desconhecido').toUpperCase();
       if (!map[nome]) map[nome] = { aluguel: 0, caucao: 0, semanas: {} };
       if (t.categoria === 'devolucao_caucao')  { map[nome].caucao  += t.valor; return; }
       if (t.categoria === 'devolucao_aluguel') { map[nome].aluguel += t.valor; return; }
@@ -3659,7 +3659,7 @@ document.addEventListener('click', function(e) {
     var motorMap = {};
     d.transacoes.forEach(function(t) {
       if (['aluguel','adesao','caucao','devolucao_caucao','devolucao_aluguel'].indexOf(t.categoria) < 0) return;
-      var nome = t.motorista || 'Desconhecido';
+      var nome = (t.motorista || 'Desconhecido').toUpperCase();
       if (!motorMap[nome]) motorMap[nome] = {aluguel:0, adesao:0, caucao:0, semanas:{}};
       if (t.categoria === 'devolucao_caucao')  { motorMap[nome].caucao  += t.valor; return; }
       if (t.categoria === 'devolucao_aluguel') { motorMap[nome].aluguel += t.valor; return; }

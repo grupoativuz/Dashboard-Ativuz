@@ -321,6 +321,7 @@ _ASAAS_PROXY_FATURA = {
     "803445386": "ADRIANO TEOTONIO DA SILVA",               # Andrier pagou por Adriano
     "811925256": "MARCIANO EZEQUIEL VALDEVINO DA SILVA",    # Andrier pagou por Marciano
     "875101330": "JACKSON CASSIANO VERISSIMO",              # Polliana pagou por Jackson
+    "894432964": "JOSE PEREIRA JUNIOR",                     # Andrier pagou R$450 no cartão; com os R$750 do Pix (fatura 894414083) fecha a semana de R$1.200
 }
 
 # Pagadores que sempre representam outro motorista (todas as faturas em nome deles)
