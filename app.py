@@ -5489,29 +5489,38 @@ def _fin_total_pago():
 def pagina_capital_investido():
     csv_text, csv_error = _ci_fetch_csv()
     total_pago = _fin_total_pago()
+    aportes_extra, aportes_fora = [], []
     try:
-        sb = _supabase()
-        res = sb.table("capital_aportes").select(
-            "data, investidor, descricao, banco_destino, valor"
-        ).order("data").execute()
-        aportes_extra = [
-            {
+        sb   = _supabase()
+        cols = "data, investidor, descricao, banco_destino, valor, computar"
+        try:
+            res = sb.table("capital_aportes").select(cols).order("data").execute()
+        except Exception:
+            # coluna `computar` ainda não criada — tudo entra no cálculo
+            res = sb.table("capital_aportes").select(
+                "data, investidor, descricao, banco_destino, valor"
+            ).order("data").execute()
+        for r in (res.data or []):
+            item = {
                 "data":          str(r["data"]),
                 "investidor":    r["investidor"],
                 "descricao":     r.get("descricao") or "",
                 "banco_destino": r.get("banco_destino") or "",
                 "valor":         float(r["valor"]),
             }
-            for r in (res.data or [])
-        ]
+            if r.get("computar", True):
+                aportes_extra.append(item)
+            else:
+                aportes_fora.append(item)
     except Exception:
-        aportes_extra = []
+        aportes_extra, aportes_fora = [], []
     return render_template("capital_investido.html",
         active="capital_investido",
         csv_text=csv_text,
         csv_error=csv_error,
         total_pago=total_pago,
         aportes_extra=aportes_extra,
+        aportes_fora=aportes_fora,
     )
 
 
@@ -5531,13 +5540,16 @@ def api_capital_aportes():
     sb = _supabase()
     if sb is None:
         return jsonify({"ok": False, "erro": "Supabase não configurado"}), 500
-    sb.table("capital_aportes").insert({
+    registro = {
         "data":          data,
         "investidor":    investidor,
         "descricao":     descricao,
         "banco_destino": banco_dest,
         "valor":         valor,
-    }).execute()
+    }
+    if not body.get("computar", True):
+        registro["computar"] = False
+    sb.table("capital_aportes").insert(registro).execute()
     return jsonify({"ok": True, "data": data, "investidor": investidor, "valor": valor})
 
 
