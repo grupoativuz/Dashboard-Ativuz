@@ -299,12 +299,14 @@ def _frota_cfg(valor=None):
 # Mesmo cliente cadastrado com nomes diferentes no ASAAS
 _ASAAS_ALIAS_MOTORISTA = {
     "67.009.261 elionilson c. barbosa": "ELIONILSON CORDEIRO BARBOSA",
+    "bryan redden dos santos leite":    "ELIONILSON CORDEIRO BARBOSA",
 }
 
 
 _ASAAS_NAO_VEICULO = (
     "gelo e gela conveniencia",
     "juan e ivan conveniencia",
+    "rafael augusto ventura",
 )
 
 
