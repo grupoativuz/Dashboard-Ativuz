@@ -302,6 +302,16 @@ _ASAAS_ALIAS_MOTORISTA = {
 }
 
 
+# Destinatários dos repasses ao investidor. Cada frota manda o dinheiro para uma
+# pessoa jurídica diferente — a Luz Divina no próprio nome, o João Paulo pela
+# Araujo Serviços de Consultoria (e, no começo, direto na conta pessoal dele).
+_ASAAS_REPASSE_INVESTIDOR = (
+    "luz divina",
+    "araujo servicos de consultoria",
+    "joao paulo de franca araujo macedo",
+)
+
+
 _ASAAS_NAO_VEICULO = (
     "gelo e gela conveniencia",
     "juan e ivan conveniencia",
@@ -377,7 +387,7 @@ def _asaas_montar_transacao(data, tx_id, tipo, estornado, desc, valor, lancament
         categoria = "caucao"
     elif "cobranca recebida" in desc_n:
         categoria = "adesao" if abs_v >= piso_adesao else "aluguel"
-    elif "luz divina" in desc_n:
+    elif any(p in desc_n for p in _ASAAS_REPASSE_INVESTIDOR):
         categoria = "repasse_investidor"
     elif "ativuz" in desc_n:
         categoria = "taxa_ativuz"
@@ -466,6 +476,13 @@ def _asaas_reclassificar(transacoes):
         if any(p in _asaas_norm(t.get("descricao", "")) for p in _ASAAS_NAO_VEICULO):
             t["categoria"] = "nao_veiculo"
             t["relevante"] = False
+            t["motorista"] = ""
+            continue
+        # Repasses salvos antes da regra existir ficaram em "outro"
+        if (t.get("categoria") in ("outro", "repasse_investidor")
+                and any(p in _asaas_norm(t.get("descricao", "")) for p in _ASAAS_REPASSE_INVESTIDOR)):
+            t["categoria"] = "repasse_investidor"
+            t["relevante"] = True
             t["motorista"] = ""
             continue
         alias = _ASAAS_ALIAS_MOTORISTA.get(_asaas_norm(t.get("motorista", "")))
