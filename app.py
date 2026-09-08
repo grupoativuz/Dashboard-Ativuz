@@ -299,7 +299,6 @@ def _frota_cfg(valor=None):
 # Mesmo cliente cadastrado com nomes diferentes no ASAAS
 _ASAAS_ALIAS_MOTORISTA = {
     "67.009.261 elionilson c. barbosa": "ELIONILSON CORDEIRO BARBOSA",
-    "bryan redden dos santos leite":    "ELIONILSON CORDEIRO BARBOSA",
 }
 
 
@@ -324,6 +323,7 @@ _ASAAS_PROXY_FATURA = {
     "811925256": "MARCIANO EZEQUIEL VALDEVINO DA SILVA",    # Andrier pagou por Marciano
     "875101330": "JACKSON CASSIANO VERISSIMO",              # Polliana pagou por Jackson
     "894432964": "JOSE PEREIRA JUNIOR",                     # Andrier pagou R$450 no cartão; com os R$750 do Pix (fatura 894414083) fecha a semana de R$1.200
+    "857969887": "ELIONILSON CORDEIRO BARBOSA",             # Bryan Redden pagou a semana de 15/07 por Elionilson — só esta fatura
 }
 
 # Pagadores que sempre representam outro motorista (todas as faturas em nome deles)
