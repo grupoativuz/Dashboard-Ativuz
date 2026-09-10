@@ -5692,6 +5692,70 @@ def _fin_total_pago():
         return 0.0
 
 
+# ── Índices do Banco Central (série SGS) ──────────────────────────────────────
+# CDI e IPCA vinham de listas fixas no template, atualizadas à mão — e estavam
+# defasadas e com 8 meses divergentes do oficial. Agora vêm da API pública do
+# BCB. Se a API falhar, o template cai nas listas fixas que ficaram lá.
+
+_BCB_SGS = {"cdi": 4391, "ipca": 433}   # 4391 = CDI acum. no mês; 433 = IPCA mensal
+_BCB_CACHE = {}                          # {codigo: (buscado_em, dados)}
+_BCB_TTL   = 6 * 3600                    # a API publica no máximo 1x/dia
+
+
+def _bcb_serie_mensal(codigo, inicio="01/01/2023"):
+    """
+    Série mensal do SGS como {'AAAA-MM': fração}. `None` se a API falhar.
+
+    O mês corrente é descartado de propósito: o BCB publica o acumulado
+    parcial (ex.: 0,31% no dia 10), que passaria por mês fechado e derrubaria
+    a média — o mesmo problema que já tinha sido contornado à mão no template.
+    """
+    import time as _t
+    agora = _t.time()
+    em_cache = _BCB_CACHE.get(codigo)
+    if em_cache and agora - em_cache[0] < _BCB_TTL:
+        return em_cache[1]
+
+    url = (f"https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados"
+           f"?formato=json&dataInicial={inicio}")
+    try:
+        import requests
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()
+        bruto = resp.json()
+    except Exception:
+        return em_cache[1] if em_cache else None
+
+    hoje_mes = datetime.now(_BRT).strftime("%Y-%m")
+    dados = {}
+    for ponto in bruto:
+        try:
+            d = str(ponto["data"])                    # 'DD/MM/AAAA'
+            mes = f"{d[6:10]}-{d[3:5]}"
+            if mes >= hoje_mes:                       # mês ainda aberto
+                continue
+            dados[mes] = round(float(ponto["valor"]) / 100, 6)
+        except (KeyError, TypeError, ValueError):
+            continue
+
+    if not dados:
+        return em_cache[1] if em_cache else None
+    _BCB_CACHE[codigo] = (agora, dados)
+    return dados
+
+
+def _bcb_indices():
+    """CDI e IPCA para o template. Chave ausente = template usa sua lista fixa."""
+    out = {}
+    for nome, cod in _BCB_SGS.items():
+        serie = _bcb_serie_mensal(cod)
+        if serie:
+            out[nome] = serie
+    if out:
+        out["ate"] = max(max(v) for k, v in out.items() if k != "ate")
+    return out
+
+
 @app.route("/capital-investido")
 def pagina_capital_investido():
     csv_text, csv_error = _ci_fetch_csv()
@@ -5727,6 +5791,7 @@ def pagina_capital_investido():
         tir = {"ok": False, "erro": str(e)}
     return render_template("capital_investido.html",
         active="capital_investido",
+        indices=_bcb_indices(),
         tir=tir,
         csv_text=csv_text,
         csv_error=csv_error,

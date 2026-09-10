@@ -343,16 +343,17 @@
           Data do primeiro ao último aporte registrado.
         </div>
         <div>
-          <strong>Capital SELIC</strong>
-          Quanto o dinheiro valeria hoje se tivesse ficado aplicado no Tesouro Selic desde a data de cada aporte — cada aporte é corrigido por juros compostos, trecho a trecho, acompanhando <em>cada mudança de taxa do Copom</em> desde 2023 (de 13,75% até os 14,00% em vigor desde 05/08/2026). É uma aproximação: usa dias corridos, enquanto o Tesouro Selic rende em dias úteis.
+          <strong>Selic líquida (após IR)</strong>
+          Quanto você teria <em>na mão</em> hoje se o dinheiro tivesse ficado no Tesouro Selic desde a data de cada aporte — já descontados o Imposto de Renda e a custódia da B3. Cada aporte é corrigido por juros compostos, trecho a trecho, acompanhando cada mudança de taxa do Copom desde 2023 (de 13,75% até os 14,00% em vigor desde 05/08/2026). Sobre o rendimento incide o <em>IR regressivo</em> conforme o prazo de cada aporte (22,5% até 180 dias · 20% até 360 · 17,5% até 720 · 15% acima disso) e a <em>custódia da B3 de 0,20% ao ano</em>. Aproximações: usa dias corridos em vez de dias úteis, e cobra custódia sobre todo o saldo, ignorando a isenção dos primeiros R$ 10 mil.
         </div>
         <div>
-          <strong>Ganho SELIC</strong>
-          Quanto o Tesouro Selic teria rendido além do principal (Capital SELIC − Total Aportado). Serve de referência para comparar com o retorno real do negócio.
+          <strong>Ganho líquido</strong>
+          Quanto o Tesouro Selic teria rendido além do principal, já livre de impostos (Selic líquida − Total Aportado). É esse o número a bater: se o negócio rendeu mais que isso, o dinheiro está melhor aplicado aqui do que parado.
         </div>
         <div>
-          <strong>ROIC %</strong>
-          Retorno sobre o capital investido pela Selic (Ganho SELIC ÷ Total Aportado). Se o negócio superar esse percentual, o investimento foi mais rentável que a alternativa mais segura do mercado.
+          <strong>Retorno líquido %</strong>
+          Retorno que a Selic teria dado, já líquido de IR e custódia (Ganho líquido ÷ Total Aportado). Se o negócio superar esse percentual, o investimento foi mais rentável que a alternativa mais segura do mercado.
+          <br><em>Atenção: os gráficos comparativos abaixo (Poupança, Nubank, Mercado Pago, IPCA+6%) continuam brutos, sem desconto de imposto — só os três indicadores acima são líquidos.</em>
         </div>
       </div>
     </div>
@@ -633,6 +634,34 @@ function selicFactor(fromDateStr, toDate) {
   return compoundFactor(fromDateStr, toDate, SELIC_SEGS, 1, 0);
 }
 
+// ── Selic LÍQUIDA: o que sobraria na mão, não o rendimento bruto ─────────────
+// Este card serve para comparar com o retorno do negócio, então precisa
+// descontar o que o governo e a B3 levam.
+//   IR regressivo: incide só sobre o rendimento, pela alíquota do prazo.
+//   Custódia B3: 0,20% a.a. sobre o saldo, tratada como desconto contínuo.
+// Simplificação assumida: a isenção de custódia para os primeiros R$ 10 mil em
+// Tesouro Selic é ignorada — cobra sobre tudo, ficando levemente conservador.
+var CUSTODIA_AA = 0.0020;
+
+function aliquotaIR(dias) {
+  if (dias <= 180) return 0.225;
+  if (dias <= 360) return 0.200;
+  if (dias <= 720) return 0.175;
+  return 0.150;
+}
+
+function selicLiquido(valor, fromDateStr, toDate) {
+  var from = new Date(fromDateStr + 'T00:00:00');
+  var end  = toDate || TODAY;
+  if (isNaN(from.getTime()) || from >= end) return valor;
+  var dias  = (end - from) / 86400000;
+  var bruto = valor * selicFactor(fromDateStr, end)
+                    * Math.pow(1 - CUSTODIA_AA, dias / 365);
+  var ganho = bruto - valor;
+  if (ganho <= 0) return bruto;
+  return valor + ganho * (1 - aliquotaIR(dias));
+}
+
 // ── CSV helpers ──────────────────────────────────────────────────────────────
 
 function splitLine(line) {
@@ -768,7 +797,7 @@ function buildInvestors(rows) {
   });
 
   var sharedTotal = sharedRows.reduce(function (s, r) { return s + r.valor; }, 0);
-  var sharedSelic = sharedRows.reduce(function (s, r) { return s + r.valor * selicFactor(r.data, TODAY); }, 0);
+  var sharedSelic = sharedRows.reduce(function (s, r) { return s + selicLiquido(r.valor, r.data, TODAY); }, 0);
   var sharedCount = sharedRows.length;
   var sharedFirstDate = sharedRows.map(function (r) { return r.data; }).sort()[0] || null;
   var sharedBmkValues = BENCHMARKS.map(function (bmk) {
@@ -800,7 +829,7 @@ function buildInvestors(rows) {
     if (r.data < inv.firstDate) inv.firstDate = r.data;
     inv.total += r.valor;
     inv.count++;
-    inv.selic += r.valor * selicFactor(r.data, TODAY);
+    inv.selic += selicLiquido(r.valor, r.data, TODAY);
     BENCHMARKS.forEach(function (bmk, bi) {
       inv.bmkValues[bi] += r.valor * bfactor(r.data, TODAY, bmk.segs, bmk.mult, bmk.spread);
     });
@@ -832,9 +861,9 @@ function renderKPIs(kpis) {
     { label: 'Nº Transações',   val: kpis.count,                          cls: '' },
     { label: 'Ticket Médio',    val: 'R$&nbsp;' + brl(kpis.ticket),      cls: '' },
     { label: 'Período',         val: kpis.periodo,                         cls: 'sm' },
-    { label: 'Capital SELIC',   val: 'R$&nbsp;' + brl(kpis.capSelic),    cls: 'accent' },
-    { label: 'Ganho SELIC',     val: 'R$&nbsp;' + brl(kpis.ganhoSelic),  cls: 'green' },
-    { label: 'ROIC %',          val: pctStr(kpis.roic),                    cls: 'accent' },
+    { label: 'Selic líquida (após IR)', val: 'R$&nbsp;' + brl(kpis.capSelic),   cls: 'accent' },
+    { label: 'Ganho líquido',          val: 'R$&nbsp;' + brl(kpis.ganhoSelic), cls: 'green' },
+    { label: 'Retorno líquido %',      val: pctStr(kpis.roic),                 cls: 'accent' },
   ];
   document.getElementById('ci-kpis').innerHTML = defs.map(function (k) {
     return '<div class="ci-kpi"><div class="ci-kpi-label">' + k.label + '</div>' +
@@ -868,7 +897,7 @@ function renderInvestors(investors) {
         '<div class="ci-inv-stat-value">' + inv.count + '</div></div>' +
         '<div><div class="ci-inv-stat-label">Ticket Médio</div>' +
         '<div class="ci-inv-stat-value">R$ ' + brl(ticket) + '</div></div>' +
-        '<div><div class="ci-inv-stat-label">Capital SELIC</div>' +
+        '<div><div class="ci-inv-stat-label">Selic líquida (após IR)</div>' +
         '<div class="ci-inv-stat-value">R$ ' + brl(inv.selic) + '</div></div>' +
       '</div>' +
       '<div class="ci-inv-prog">' +
@@ -898,7 +927,7 @@ function renderTable(rows) {
 
 // ── Benchmarks ────────────────────────────────────────────────────────────────
 // ─── EDITE AQUI QUANDO AS TAXAS MUDAREM ───
-// ─── EDITE AQUI QUANDO SAIR O CDI DO MÊS ───
+// ─── RESERVA: só usada se a API do Banco Central falhar ───
 // CDI MENSAL divulgado (fonte: blog.nubank.com.br/cdi-2026). O último mês da
 // lista continua valendo daí em diante.
 // Nota: jun/2026 foi publicado em 0,64% — mês incompleto, equivalente a 8,0%
@@ -917,9 +946,13 @@ var _CDI_MENSAL = {
   '2026-01': 0.0116, '2026-02': 0.0100, '2026-03': 0.0121, '2026-04': 0.0109,
   '2026-05': 0.0107
 };
-var _CDI = segsDeMensais(_CDI_MENSAL);
+// Os dados oficiais do Banco Central (série SGS 4391) mandam; a lista acima só
+// entra se a API estiver fora do ar.
+var INDICES = {{ indices | tojson }};
+var _CDI = segsDeMensais(INDICES.cdi && Object.keys(INDICES.cdi).length
+                         ? INDICES.cdi : _CDI_MENSAL);
 
-// ─── EDITE AQUI QUANDO SAIR O IPCA DO MÊS ───
+// ─── RESERVA: só usada se a API do Banco Central falhar ───
 // IPCA acumulado do ano até 2025 e mensal em 2026 (fonte: investidor10.com.br/indices/ipca).
 // O último mês da lista continua valendo daí em diante.
 var _IPCA_ANUAL  = { 2023: 0.0462, 2024: 0.0483, 2025: 0.0426 };
@@ -927,7 +960,11 @@ var _IPCA_MENSAL = {
   '2026-01': 0.0033, '2026-02': 0.0070, '2026-03': 0.0088, '2026-04': 0.0067,
   '2026-05': 0.0058, '2026-06': 0.0016, '2026-07': 0.0007
 };
-var _IPCA = mergeSegs(segsDeAnuais(_IPCA_ANUAL), segsDeMensais(_IPCA_MENSAL));
+// IPCA mensal do BCB (série SGS 433) cobre 2023 em diante e substitui tanto a
+// lista anual quanto a mensal; sem API, volta ao par anual + mensal fixo.
+var _IPCA = (INDICES.ipca && Object.keys(INDICES.ipca).length)
+  ? segsDeMensais(INDICES.ipca)
+  : mergeSegs(segsDeAnuais(_IPCA_ANUAL), segsDeMensais(_IPCA_MENSAL));
 
 var BENCHMARKS = [
   { label: 'Caixinha Nubank',       segs: _CDI,        mult: 1.10, color: '#4A6FA5' },
