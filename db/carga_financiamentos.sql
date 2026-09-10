@@ -58,27 +58,26 @@ update public.financiamentos_contratos set
   periodicidade = 'mensal', taxa_variavel = false, taxa_juros_am = 0.008699
 where id = '74c89d5c-ecc7-4f0d-aef8-9f9cbd507b15';
 
+-- Os dois PDFs de 02/04/2025 têm prazo, 1ª parcela e taxa idênticos; o vínculo
+-- com a placa foi confirmado pelo controle de contratos da AZ Empreendimentos.
+-- 035/005 EXF-1F14 ← PDF "02-04-2025 - R$ 46.170,00"
+update public.financiamentos_contratos set
+  valor_financiado = 46170.00, sistema_amortizacao = 'SAC',
+  parcelas_amortizacao = 30, data_inicio_amortizacao = '2025-11-15',
+  periodicidade = 'mensal', taxa_variavel = false, taxa_juros_am = 0.007531
+where id = 'f5aa553e-8035-4251-a50f-8077341dbdca';
+
+-- 035/004 EWJ-2I45 ← PDF "02-04-2025 - R$ 47.700,00"
+update public.financiamentos_contratos set
+  valor_financiado = 47700.00, sistema_amortizacao = 'SAC',
+  parcelas_amortizacao = 30, data_inicio_amortizacao = '2025-11-15',
+  periodicidade = 'mensal', taxa_variavel = false, taxa_juros_am = 0.007531
+where id = '4aced2ac-c441-44bf-9fac-89975848c895';
+
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- PENDENTES — não execute sem confirmar antes
 -- ════════════════════════════════════════════════════════════════════════════
-
--- 035/004 (EWJ-2I45) e 035/005 (EXF-1F14) são indistinguíveis pelos dados:
--- ambos têm 30 parcelas terminando em 15/04/2028, e os dois PDFs de 02/04/2025
--- (R$ 46.170,00 e R$ 47.700,00) têm exatamente o mesmo prazo, mesma 1ª parcela
--- e mesma taxa. Só o documento original diz qual placa é qual.
---
--- update public.financiamentos_contratos set
---   valor_financiado = 46170.00, sistema_amortizacao = 'SAC',
---   parcelas_amortizacao = 30, data_inicio_amortizacao = '2025-11-15',
---   periodicidade = 'mensal', taxa_variavel = false, taxa_juros_am = 0.007531
--- where id = '4aced2ac-c441-44bf-9fac-89975848c895';  -- 035/004 EWJ-2I45
---
--- update public.financiamentos_contratos set
---   valor_financiado = 47700.00, sistema_amortizacao = 'SAC',
---   parcelas_amortizacao = 30, data_inicio_amortizacao = '2025-11-15',
---   periodicidade = 'mensal', taxa_variavel = false, taxa_juros_am = 0.007531
--- where id = 'f5aa553e-8035-4251-a50f-8077341dbdca';  -- 035/005 EXF-1F14
 
 -- Sicredi 01 (10585560): não há documento na pasta. As 46 parcelas de
 -- R$ 703,51 e a 1ª em 12/08/2025 batem com o caso de teste do enunciado, mas a
