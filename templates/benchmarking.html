@@ -97,7 +97,7 @@
       <div class="an-kpi-label" style="margin-top:4px">margem {{ kpis.margem_ebitda }}</div>
     </div>
     <div class="an-kpi">
-      <div class="an-kpi-label">Saldo Devedor</div>
+      <div class="an-kpi-label">Dívida Presente</div>
       <div class="an-kpi-value">{{ kpis.saldo_devedor }}</div>
       <div class="an-kpi-label" style="margin-top:4px">CP {{ kpis.div_curto }}</div>
     </div>
@@ -137,7 +137,7 @@
     <div class="an-section-head">
       <div>
         <div class="an-section-title">Alavancagem</div>
-        <div class="an-section-sub">Saldo devedor reconstruído mês a mês + Dívida/EBITDA, e corte curto x longo prazo</div>
+        <div class="an-section-sub">Dívida a valor presente reconstruída mês a mês + Dívida/EBITDA, e corte curto x longo prazo</div>
       </div>
     </div>
     <div class="an-split">
@@ -153,9 +153,9 @@
         </div>
         {% if kpis.n_nao_iniciados %}
         <div class="an-mini-card">
-          <div class="an-kpi-label">Ainda não iniciada</div>
+          <div class="an-kpi-label">Em carência</div>
           <div class="an-kpi-value">{{ kpis.div_nao_iniciada }}</div>
-          <div class="an-kpi-label" style="margin-top:4px">{{ kpis.n_nao_iniciados }} contrato(s) sem parcela vencida</div>
+          <div class="an-kpi-label" style="margin-top:4px">{{ kpis.n_nao_iniciados }} contrato(s) sem amortizar principal</div>
         </div>
         <div class="an-mini-card">
           <div class="an-kpi-label">Em curso</div>

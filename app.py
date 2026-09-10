@@ -7541,18 +7541,30 @@ def _ad_acumulado(meses_dict, chaves):
 
 def _ad_divida():
     """
-    Saldo devedor dos financiamentos/consórcios em aberto, com corte curto x longo prazo.
+    Dívida a VALOR PRESENTE, com corte curto x longo prazo.
 
-    Curto prazo = parcelas que vencem nos próximos 12 meses; o resto é longo prazo.
+    Usa o mesmo motor da página de carteira financeira (`_fin_saldo_real`) e a
+    mesma data de competência, para que as duas telas não mostrem números
+    diferentes para a mesma dívida.
+
+    O corte curto/longo sai da própria curva de amortização: curto prazo é o
+    principal que sai nos próximos 12 meses, ou seja `saldo(hoje) -
+    saldo(hoje+12m)`. Isso vale para SAC, Price e carência sem caso especial —
+    um contrato que só começa a amortizar daqui a 18 meses tem curto prazo zero,
+    que é o correto e o que a contagem nominal de parcelas errava.
+
     Contratos de veículos já vendidos ficam de fora.
     """
     try:
         sb   = _supabase()
         rows = sb.table("financiamentos_contratos").select("*").execute().data or []
     except Exception:
-        return {"total": 0.0, "curto": 0.0, "longo": 0.0, "contratos": 0}
+        return {"total": 0.0, "curto": 0.0, "longo": 0.0, "contratos": 0,
+                "nao_iniciada": 0.0, "em_curso": 0.0, "contratos_nao_iniciados": 0}
 
-    hoje = datetime.now(_BRT).date()
+    agora = datetime.now(_BRT).date()
+    comp  = _fin_data_referencia(agora)
+
     total = curto = longo = 0.0
     nao_iniciada = 0.0
     n = n_nao_iniciados = 0
@@ -7561,28 +7573,44 @@ def _ad_divida():
             continue
         try:
             parcela  = float(r["valor_parcela"])
-            restante = _fin_calcular_restante(r, hoje)
+            ref      = _fin_ref_contrato(r, comp, agora)
+            restante = _fin_calcular_restante(r, ref)
         except Exception:
             continue
         if restante <= 0:
             continue
-        n += 1
-        saldo = restante * parcela
-        total += saldo
-        curto += min(restante, 12) * parcela
-        longo += max(0, restante - 12) * parcela
 
-        # Contrato ainda não iniciado: nenhuma parcela venceu até hoje. Pesa no
-        # saldo devedor sem ter contrapartida no EBITDA já realizado.
-        p1 = r.get("data_parcela_1")
-        comecou = True
-        if p1:
-            try:
-                comecou = date.fromisoformat(str(p1)[:10]) <= hoje
-            except Exception:
-                comecou = True
-        elif restante >= int(r["parcelas_total"]):
+        if (r.get("tipo") or "financiamento") == "consorcio":
+            # Consórcio não tem juros embutidos: o nominal já é o valor presente.
+            saldo, origem = restante * parcela, "consorcio"
+            ref12  = _fin_add_meses(ref, 12)
+            saldo12 = _fin_calcular_restante(r, ref12) * parcela
+        else:
+            saldo, origem = _fin_saldo_real(r, ref, restante * parcela)
+            ref12   = _fin_add_meses(ref, 12)
+            saldo12, _ = _fin_saldo_real(r, ref12,
+                                         _fin_calcular_restante(r, ref12) * parcela)
+
+        n += 1
+        total += saldo
+        curto += max(0.0, saldo - saldo12)
+        longo += min(saldo, saldo12)
+
+        # Contrato ainda em carência: pesa na dívida sem ter contrapartida no
+        # EBITDA já realizado. Para os que ainda não têm termos cadastrados,
+        # vale o teste antigo — nenhuma parcela venceu até hoje.
+        if origem == "carencia":
             comecou = False
+        else:
+            p1 = r.get("data_parcela_1")
+            comecou = True
+            if p1:
+                try:
+                    comecou = date.fromisoformat(str(p1)[:10]) <= ref
+                except Exception:
+                    comecou = True
+            elif origem == "nominal" and restante >= int(r["parcelas_total"]):
+                comecou = False
         if not comecou:
             nao_iniciada += saldo
             n_nao_iniciados += 1
