@@ -67,6 +67,9 @@
 }
 .pl-input.saving { opacity: .5; }
 .pl-edit { font-size: 11px; color: var(--ink-4, var(--ink-3)); }
+.pl-conta { border-top: none !important; padding: 4px 0 4px 22px; }
+.pl-conta-nome { font-size: 13px; color: var(--ink-3); }
+.pl-conta .pl-input { width: 160px; font-size: 14px; }
 .pl-comparativo {
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px;
 }
@@ -223,12 +226,18 @@
       <div class="pl-linha">
         <div class="pl-rotulo">
           <span class="pl-op">(+)</span> Saldo em Conta
-          <span class="pl-edit">editável</span>
+          <span class="pl-edit">editável por empresa</span>
         </div>
-        <input type="number" step="0.01" class="pl-input" id="pl-saldo"
-               data-chave="pl_saldo_conta" value="{{ patrimonio.saldo_conta }}"
-               placeholder="0,00" aria-label="Saldo em Conta">
+        <div class="pl-valor" id="pl-saldo-total"></div>
       </div>
+      {% for c in patrimonio.contas %}
+      <div class="pl-linha pl-conta">
+        <div class="pl-rotulo pl-conta-nome">{{ c.nome }}</div>
+        <input type="number" step="0.01" class="pl-input pl-saldo" id="pl-{{ c.chave }}"
+               data-chave="{{ c.chave }}" value="{{ c.valor }}"
+               placeholder="0,00" aria-label="Saldo em conta · {{ c.nome }}">
+      </div>
+      {% endfor %}
 
       <div class="pl-linha pl-total">
         <div class="pl-rotulo">Resultado</div>
@@ -372,9 +381,10 @@ const AD_AQUIS = {{ kpis.frota_aquisicao|tojson }};
 const PL = {{ patrimonio|tojson }};
 
 (function () {
-  const elSaldo  = document.getElementById('pl-saldo');
+  const elsSaldo = Array.prototype.slice.call(document.querySelectorAll('.pl-saldo'));
   const elResult = document.getElementById('pl-resultado');
-  if (!elSaldo) return;
+  const elSaldoTotal = document.getElementById('pl-saldo-total');
+  if (!elsSaldo.length) return;
 
   const brl = v => (v < 0 ? '-' : '') + 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {
     minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -406,7 +416,9 @@ const PL = {{ patrimonio|tojson }};
   }
 
   function recalcular() {
-    const r = PL.frota_fipe - divida + num(elSaldo);
+    const saldo = elsSaldo.reduce(function (acc, el) { return acc + num(el); }, 0);
+    elSaldoTotal.textContent = brl(saldo);
+    const r = PL.frota_fipe - divida + saldo;
     elResult.textContent = brl(r);
     elResult.classList.toggle('pl-negativo', r < 0);
     elOp.textContent = brl(r);
@@ -439,7 +451,7 @@ const PL = {{ patrimonio|tojson }};
       });
   }
 
-  [elSaldo].forEach(el => {
+  elsSaldo.forEach(el => {
     el.dataset.salvo = el.defaultValue;
     el.addEventListener('input', recalcular);        /* número acompanha a digitação */
     el.addEventListener('blur',  () => salvar(el));

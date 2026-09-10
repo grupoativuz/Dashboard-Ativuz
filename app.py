@@ -7885,7 +7885,13 @@ def _ad_receita_por_cliente(lancamentos, limite=10):
 
 # Só estas chaves podem ser gravadas pela API. Qualquer outra é recusada.
 # A frota não entra aqui: seu valor FIPE vem calculado de frota_fipe_historico.
-_PARAMS_EDITAVEIS = {"pl_saldo_conta"}
+# Uma chave de saldo por conta bancária das três empresas do grupo.
+_PL_CONTAS = [
+    ("pl_saldo_ativuz", "Ativuz"),
+    ("pl_saldo_az",     "AZ Empreendimentos"),
+    ("pl_saldo_serido", "Seridó"),
+]
+_PARAMS_EDITAVEIS = {chave for chave, _ in _PL_CONTAS}
 
 
 def _param_get_todos(chaves):
@@ -8045,7 +8051,9 @@ def pagina_benchmarking():
     patrimonio = {
         "frota_fipe":     frota["fipe"],          # calculado, não editável
         "frota_veiculos": frota["veiculos"],
-        "saldo_conta":    params["pl_saldo_conta"],
+        "contas":         [{"chave": c, "nome": n, "valor": params[c]}
+                           for c, n in _PL_CONTAS],
+        "saldo_conta":    sum(params[c] for c, _ in _PL_CONTAS),
         "div_financ":     divida["financiamento"],
         "div_consorcio":  divida["consorcio"],
         "aportado":       selic["aportado"],
