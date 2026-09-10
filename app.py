@@ -5322,6 +5322,23 @@ def _fin_calcular_restante(r, hoje):
 
 # ── Saldo devedor real (valor de quitação) — só FINANCIAMENTOS ───────────────
 
+# Dia do mês em que a página vira para a competência seguinte. O vencimento mais
+# tardio da carteira é dia 19 (SERIDO); 21 dá dois dias de folga, de modo que na
+# data de referência todas as parcelas do período já venceram. O efeito é um
+# número estável dentro do mês, como num fechamento: entre o dia 12 e o dia 20 a
+# página mostra o saldo anterior aos pagamentos do mês, e cai de uma vez no 21.
+FIN_DIA_VIRADA = 21
+
+
+def _fin_data_referencia(hoje):
+    """Data de competência da página: o dia FIN_DIA_VIRADA mais recente."""
+    if hoje.day >= FIN_DIA_VIRADA:
+        return date(hoje.year, hoje.month, FIN_DIA_VIRADA)
+    if hoje.month == 1:
+        return date(hoje.year - 1, 12, FIN_DIA_VIRADA)
+    return date(hoje.year, hoje.month - 1, FIN_DIA_VIRADA)
+
+
 # Rótulos curtos da procedência do saldo, exibidos como badge na tabela.
 FIN_ORIGEM = {
     "carencia":       "carência",
@@ -5422,7 +5439,10 @@ def _fin_saldo_real(r, hoje, devedor_nominal):
 
 @app.route("/financiamentos")
 def pagina_financiamentos():
-    hoje = datetime.now(_BRT).date()
+    # Toda a página — financiamentos e consórcios — usa a mesma data de
+    # competência, senão os dois subtotais se referem a instantes diferentes.
+    agora = datetime.now(_BRT).date()
+    hoje  = _fin_data_referencia(agora)
 
     sb   = _supabase()
     rows = sb.table("financiamentos_contratos").select("*").order("created_at").execute().data or []
@@ -5518,6 +5538,8 @@ def pagina_financiamentos():
         "n_cons":             len(cons_ativos),
         "n_sem_cadastro":     sum(1 for c in fin_ativos if c["sem_cadastro"]),
         "n_requer_revisao":   sum(1 for c in fin_ativos if c["requer_revisao"]),
+        "data_referencia":    hoje,
+        "proxima_virada":     _fin_add_meses(hoje, 1),
     }
 
     return render_template("financiamentos.html",

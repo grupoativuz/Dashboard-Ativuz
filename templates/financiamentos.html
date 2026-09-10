@@ -213,7 +213,11 @@
 {# ── Page header ── #}
 <div class="fin-header">
   <h1>CONTROLE DE CONSÓRCIOS &amp; FINANCIAMENTOS</h1>
-  <p>Página automatizada de acompanhamento financeiro</p>
+  <p>
+    Página automatizada de acompanhamento financeiro &middot;
+    posição em <strong>{{ cards.data_referencia.strftime('%d/%m/%Y') }}</strong>,
+    próxima virada em {{ cards.proxima_virada.strftime('%d/%m/%Y') }}
+  </p>
 </div>
 
 {# ── Summary cards ── #}
