@@ -7722,7 +7722,8 @@ def _ad_receita_por_cliente(lancamentos, limite=10):
 # mercado ou com o dia — quem atualiza é o usuário na tela, não o código.
 
 # Só estas chaves podem ser gravadas pela API. Qualquer outra é recusada.
-_PARAMS_EDITAVEIS = {"pl_frota_fipe", "pl_saldo_conta"}
+# A frota não entra aqui: seu valor FIPE vem calculado de frota_fipe_historico.
+_PARAMS_EDITAVEIS = {"pl_saldo_conta"}
 
 
 def _param_get_todos(chaves):
@@ -7877,10 +7878,11 @@ def pagina_benchmarking():
     # Números crus, não formatados: o JS recalcula o resultado a cada digitação.
     params = _param_get_todos(_PARAMS_EDITAVEIS)
     patrimonio = {
-        "frota_fipe":    params["pl_frota_fipe"],
-        "saldo_conta":   params["pl_saldo_conta"],
-        "div_financ":    divida["financiamento"],
-        "div_consorcio": divida["consorcio"],
+        "frota_fipe":     frota["fipe"],          # calculado, não editável
+        "frota_veiculos": frota["veiculos"],
+        "saldo_conta":    params["pl_saldo_conta"],
+        "div_financ":     divida["financiamento"],
+        "div_consorcio":  divida["consorcio"],
     }
 
     return render_template("benchmarking.html", active="benchmarking",

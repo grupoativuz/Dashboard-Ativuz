@@ -179,11 +179,9 @@
       <div class="pl-linha">
         <div class="pl-rotulo">
           Valor da Frota (FIPE)
-          <span class="pl-edit">editável</span>
+          <span class="pl-edit">{{ patrimonio.frota_veiculos }} veículos</span>
         </div>
-        <input type="number" step="0.01" class="pl-input" id="pl-frota"
-               data-chave="pl_frota_fipe" value="{{ patrimonio.frota_fipe }}"
-               placeholder="0,00" aria-label="Valor da Frota (FIPE)">
+        <div class="pl-valor" id="pl-frota"></div>
       </div>
 
       <div class="pl-linha">
@@ -321,10 +319,9 @@ const AD_AQUIS = {{ kpis.frota_aquisicao|tojson }};
 const PL = {{ patrimonio|tojson }};
 
 (function () {
-  const elFrota  = document.getElementById('pl-frota');
   const elSaldo  = document.getElementById('pl-saldo');
   const elResult = document.getElementById('pl-resultado');
-  if (!elFrota) return;
+  if (!elSaldo) return;
 
   const brl = v => (v < 0 ? '-' : '') + 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {
     minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -332,12 +329,13 @@ const PL = {{ patrimonio|tojson }};
   const num = el => { const v = parseFloat(el.value); return isNaN(v) ? 0 : v; };
 
   const divida = PL.div_financ + PL.div_consorcio;
+  document.getElementById('pl-frota').textContent        = brl(PL.frota_fipe);
   document.getElementById('pl-divida').textContent       = brl(divida);
   document.getElementById('pl-div-financ').textContent    = brl(PL.div_financ);
   document.getElementById('pl-div-consorcio').textContent = brl(PL.div_consorcio);
 
   function recalcular() {
-    const r = num(elFrota) - divida + num(elSaldo);
+    const r = PL.frota_fipe - divida + num(elSaldo);
     elResult.textContent = brl(r);
     elResult.classList.toggle('pl-negativo', r < 0);
   }
@@ -367,7 +365,7 @@ const PL = {{ patrimonio|tojson }};
       });
   }
 
-  [elFrota, elSaldo].forEach(el => {
+  [elSaldo].forEach(el => {
     el.dataset.salvo = el.defaultValue;
     el.addEventListener('input', recalcular);        /* número acompanha a digitação */
     el.addEventListener('blur',  () => salvar(el));
