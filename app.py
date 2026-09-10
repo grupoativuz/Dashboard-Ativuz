@@ -5692,6 +5692,101 @@ def _fin_total_pago():
         return 0.0
 
 
+# ── Selic: fonte única do cálculo ─────────────────────────────────────────────
+# Antes isto vivia só no JavaScript de capital_investido.html. Passou para cá
+# porque duas páginas precisam do mesmo número — o card de Patrimônio Líquido em
+# /benchmarking compara o resultado da operação contra ele. Uma fórmula só,
+# um resultado só.
+
+# Taxa anual vigente A PARTIR de cada reunião do Copom; a última vale até hoje.
+# EDITE AQUI QUANDO O COPOM MUDAR A SELIC. O template lê esta mesma lista.
+_SELIC_PERIODOS = [
+    ("2023-01-01", 0.1375), ("2023-08-02", 0.1325), ("2023-09-20", 0.1275),
+    ("2023-11-01", 0.1225), ("2023-12-13", 0.1175), ("2024-01-31", 0.1125),
+    ("2024-03-20", 0.1075), ("2024-05-08", 0.1050), ("2024-09-18", 0.1075),
+    ("2024-11-06", 0.1125), ("2024-12-11", 0.1225), ("2025-01-29", 0.1325),
+    ("2025-03-19", 0.1425), ("2025-05-07", 0.1475), ("2025-06-18", 0.1500),
+    ("2026-01-28", 0.1500), ("2026-03-18", 0.1475), ("2026-04-29", 0.1450),
+    ("2026-06-17", 0.1425), ("2026-08-05", 0.1400),
+]
+
+# Custódia da B3 sobre o saldo. A isenção dos primeiros R$ 10 mil em Tesouro
+# Selic é ignorada de propósito — cobra sobre tudo, ficando conservador.
+_SELIC_CUSTODIA_AA = 0.0020
+
+
+def _selic_segmentos():
+    return [(date.fromisoformat(d), t) for d, t in _SELIC_PERIODOS]
+
+
+def _selic_fator(inicio, ate):
+    """Juros compostos trecho a trecho, um trecho por mudança de taxa."""
+    segs = _selic_segmentos()
+    if inicio >= ate:
+        return 1.0
+    fator, cur = 1.0, inicio
+    while cur < ate:
+        i = 0
+        while i + 1 < len(segs) and segs[i + 1][0] <= cur:
+            i += 1
+        prox = segs[i + 1][0] if i + 1 < len(segs) else None
+        fim  = prox if (prox and prox < ate) else ate
+        fator *= (1 + segs[i][1]) ** ((fim - cur).days / 365)
+        cur = fim
+    return fator
+
+
+def _selic_aliquota_ir(dias):
+    """IR regressivo de renda fixa, pelo prazo de cada aporte."""
+    if dias <= 180:
+        return 0.225
+    if dias <= 360:
+        return 0.200
+    if dias <= 720:
+        return 0.175
+    return 0.150
+
+
+def _capital_selic(ate=None):
+    """
+    O total aportado desde 2023 capitalizado pela Selic, bruto e líquido.
+
+    Bruto  = só a correção pela Selic.
+    Líquido = descontados IR regressivo (sobre o rendimento) e custódia da B3.
+
+    Consumido pela página de Capital Investido e pelo card de Patrimônio
+    Líquido em Análise de Dados.
+    """
+    ate = ate or datetime.now(_BRT).date()
+    try:
+        linhas = _capital_aportes_todos()
+    except Exception:
+        return {"ok": False, "aportado": 0.0, "bruto": 0.0, "liquido": 0.0}
+
+    aportado = bruto = liquido = 0.0
+    for l in linhas:
+        try:
+            valor = float(l["valor"])
+            ini   = date.fromisoformat(str(l["data"])[:10])
+        except (KeyError, TypeError, ValueError):
+            continue
+        aportado += valor
+        if ini >= ate:
+            bruto += valor
+            liquido += valor
+            continue
+        dias = (ate - ini).days
+        b = valor * _selic_fator(ini, ate)
+        bruto += b
+        # custódia primeiro (incide sobre o saldo), IR depois (só no rendimento)
+        com_custodia = b * (1 - _SELIC_CUSTODIA_AA) ** (dias / 365)
+        ganho = com_custodia - valor
+        liquido += valor + ganho * (1 - _selic_aliquota_ir(dias)) if ganho > 0 else com_custodia
+
+    return {"ok": True, "aportado": aportado, "bruto": bruto, "liquido": liquido,
+            "ganho_bruto": bruto - aportado, "ganho_liquido": liquido - aportado}
+
+
 # ── Índices do Banco Central (série SGS) ──────────────────────────────────────
 # CDI e IPCA vinham de listas fixas no template, atualizadas à mão — e estavam
 # defasadas e com 8 meses divergentes do oficial. Agora vêm da API pública do
@@ -5792,6 +5887,8 @@ def pagina_capital_investido():
     return render_template("capital_investido.html",
         active="capital_investido",
         indices=_bcb_indices(),
+        selic_periodos=_SELIC_PERIODOS,
+        capital_selic=_capital_selic(),
         tir=tir,
         csv_text=csv_text,
         csv_error=csv_error,
@@ -7942,12 +8039,18 @@ def pagina_benchmarking():
     # Patrimônio líquido: frota (FIPE) - dívida presente + saldo em conta.
     # Números crus, não formatados: o JS recalcula o resultado a cada digitação.
     params = _param_get_todos(_PARAMS_EDITAVEIS)
+    # Selic vem da mesma função que alimenta a página de Capital Investido —
+    # uma fonte só para o número, aqui e lá.
+    selic = _capital_selic()
     patrimonio = {
         "frota_fipe":     frota["fipe"],          # calculado, não editável
         "frota_veiculos": frota["veiculos"],
         "saldo_conta":    params["pl_saldo_conta"],
         "div_financ":     divida["financiamento"],
         "div_consorcio":  divida["consorcio"],
+        "aportado":       selic["aportado"],
+        "selic_bruta":    selic["bruto"],
+        "selic_liquida":  selic["liquido"],
     }
 
     return render_template("benchmarking.html", active="benchmarking",

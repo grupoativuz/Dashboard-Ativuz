@@ -490,33 +490,16 @@ var CSV_ERROR     = {{ csv_error | tojson }};
 var TOTAL_PAGO    = {{ total_pago }};
 var APORTES_EXTRA = {{ aportes_extra | tojson }};
 var PALETTE   = ['#FF4713','#4A6FA5','#22a06b','#e6a817','#9B59B6','#E74C3C','#1ABC9C','#F39C12'];
-// ─── EDITE AQUI QUANDO O COPOM MUDAR A SELIC ───
-// Taxa anual vigente A PARTIR de cada data de reunião do Copom; a última vale
-// até hoje. Fonte: blog.nubank.com.br/taxa-selic-2026
-var SELIC_PERIODOS = [
-  { de: '2023-01-01', taxa: 0.1375 },  // vigente desde 2022
-  { de: '2023-08-02', taxa: 0.1325 },
-  { de: '2023-09-20', taxa: 0.1275 },
-  { de: '2023-11-01', taxa: 0.1225 },
-  { de: '2023-12-13', taxa: 0.1175 },
-  { de: '2024-01-31', taxa: 0.1125 },
-  { de: '2024-03-20', taxa: 0.1075 },
-  { de: '2024-05-08', taxa: 0.1050 },
-  { de: '2024-09-18', taxa: 0.1075 },
-  { de: '2024-11-06', taxa: 0.1125 },
-  { de: '2024-12-11', taxa: 0.1225 },
-  { de: '2025-01-29', taxa: 0.1325 },
-  { de: '2025-03-19', taxa: 0.1425 },
-  { de: '2025-05-07', taxa: 0.1475 },
-  { de: '2025-06-18', taxa: 0.1500 },
-  { de: '2026-01-28', taxa: 0.1500 },
-  { de: '2026-03-18', taxa: 0.1475 },
-  { de: '2026-04-29', taxa: 0.1450 },
-  { de: '2026-06-17', taxa: 0.1425 },
-  { de: '2026-08-05', taxa: 0.1400 }
-];
+// Taxas do Copom e cálculo da Selic moram em app.py (_SELIC_PERIODOS /
+// _capital_selic). Aqui só se lê — para editar a taxa, é lá.
+var SELIC_PERIODOS = ({{ selic_periodos | tojson }}).map(function (p) {
+  return { de: p[0], taxa: p[1] };
+});
+var CAPITAL_SELIC = {{ capital_selic | tojson }};
 
-var TODAY     = new Date();
+// Meia-noite de hoje, não o instante atual: assim o número não muda ao longo do
+// dia e bate exatamente com o cálculo do servidor (_capital_selic em app.py).
+var TODAY     = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00');
 
 // Nomes do par compartilhado (normalizados sem acento)
 var SHARED_PAIR = ['joel araujo lopes', 'lucas trindade vieira veras diniz'];
@@ -846,7 +829,12 @@ function buildKPIs(rows, investors) {
   var periodo = dates.length
     ? fmtDate(dates[0]) + ' — ' + fmtDate(dates[dates.length - 1])
     : '—';
-  var capSelic   = investors.reduce(function (s, inv) { return s + inv.selic; }, 0);
+  // Números do servidor mandam — mesma função que alimenta o card de
+  // Patrimônio Líquido em Análise de Dados. O somatório por investidor abaixo
+  // é só a repartição desse mesmo total.
+  var capSelic   = (CAPITAL_SELIC && CAPITAL_SELIC.ok)
+    ? CAPITAL_SELIC.liquido
+    : investors.reduce(function (s, inv) { return s + inv.selic; }, 0);
   var ganhoSelic = capSelic - total;
   var roic       = total > 0 ? ganhoSelic / total : 0;
   return { total: total, count: count, ticket: ticket, periodo: periodo,
