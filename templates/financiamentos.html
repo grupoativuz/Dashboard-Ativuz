@@ -38,6 +38,38 @@
 .fin-card-value.sm { font-size: 16px; }
 .fin-card-value.accent { color: var(--brand-orange, #FF4713); }
 
+.fin-card-row.r2 { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 540px) { .fin-card-row.r2 { grid-template-columns: 1fr; } }
+.fin-card-sub {
+  font-size: 10px; color: var(--ink-3); text-align: center;
+  margin-top: 6px; line-height: 1.3;
+}
+
+/* Aviso de cadastro incompleto / revisão manual */
+.fin-aviso {
+  background: #fffbeb; border: 1px solid #fde68a; color: #92400e;
+  border-radius: 8px; padding: 10px 14px; font-size: 12px;
+  line-height: 1.5; margin: -16px 0 24px;
+}
+
+/* Saldo devedor real e a procedência do número */
+.saldo-real { font-variant-numeric: tabular-nums; }
+.saldo-real.saldo-estimado { color: var(--ink-3); }
+.saldo-na { color: var(--ink-3); }
+.saldo-origem {
+  display: inline-block; font-size: 8px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em;
+  border-radius: 3px; padding: 1px 4px; margin-left: 5px;
+  vertical-align: middle; white-space: nowrap;
+}
+.saldo-origem.o-carencia       { background: #fef3c7; color: #92400e; }
+.saldo-origem.o-sac            { background: #dcfce7; color: #166534; }
+.saldo-origem.o-price          { background: #dcfce7; color: #166534; }
+.saldo-origem.o-tabela         { background: #dbeafe; color: #1e40af; }
+.saldo-origem.o-nominal        { background: #f1f5f9; color: #64748b; }
+.saldo-origem.o-revisao_manual { background: #fee2e2; color: #991b1b; }
+.saldo-origem.o-ipca           { background: #ede9fe; color: #5b21b6; }
+
 /* ── Search ── */
 .fin-search {
   display: flex; align-items: center; gap: 10px;
@@ -227,7 +259,34 @@
     </div>
   </div>
 
+  {# Row 3 — subtotais separados: naturezas de cálculo diferentes #}
+  <div class="fin-card-row r2">
+    <div class="fin-card">
+      <div class="fin-card-label">Saldo Real &middot; Financiamentos ({{ cards.n_fin }})</div>
+      <div class="fin-card-value">R$ {{ cards.saldo_real_fin | brl }}</div>
+      <div class="fin-card-sub">valor de quitação hoje &middot; nominal R$ {{ cards.saldo_nominal_fin | brl }}</div>
+    </div>
+    <div class="fin-card">
+      <div class="fin-card-label">Saldo Nominal &middot; Consórcios ({{ cards.n_cons }})</div>
+      <div class="fin-card-value">R$ {{ cards.saldo_nominal_cons | brl }}</div>
+      <div class="fin-card-sub">consórcio não tem juros a descontar</div>
+    </div>
+  </div>
+
 </div>
+
+{% if cards.n_sem_cadastro or cards.n_requer_revisao %}
+<div class="fin-aviso">
+  {% if cards.n_sem_cadastro %}
+    <strong>{{ cards.n_sem_cadastro }}</strong> financiamento(s) sem os termos do contrato
+    cadastrados — entram pelo valor nominal das parcelas restantes.
+  {% endif %}
+  {% if cards.n_requer_revisao %}
+    <strong>{{ cards.n_requer_revisao }}</strong> com parcela vencida em aberto — saldo
+    requer revisão manual (encargos de mora não são estimados).
+  {% endif %}
+</div>
+{% endif %}
 
 {# ── Abas ── #}
 <div class="fin-tabs">
@@ -260,6 +319,8 @@
         <th>Total Pago</th>
         <th>Total</th>
         <th>Devedor</th>
+        <th>Financiado</th>
+        <th>Saldo Hoje</th>
         <th>C. Prazo</th>
         <th>L. Prazo</th>
         <th>% Quitado</th>
@@ -301,6 +362,16 @@
         <td>{{ c.total_pago | brl }}</td>
         <td>{{ c.total | brl }}</td>
         <td>{{ c.devedor | brl }}</td>
+        <td>{% if c.valor_financiado is not none %}{{ c.valor_financiado | brl }}{% else %}—{% endif %}</td>
+        <td>
+          {% if c.tipo == 'consorcio' %}
+            <span class="saldo-na" title="Consórcio: o saldo é o nominal das parcelas restantes">—</span>
+          {% else %}
+            <span class="saldo-real {{ 'saldo-estimado' if c.sem_cadastro or c.requer_revisao }}">{{ c.saldo_real | brl }}</span>
+            <span class="saldo-origem o-{{ c.saldo_origem }}">{{ FIN_ORIGEM.get(c.saldo_origem, c.saldo_origem) }}</span>
+            {% if c.taxa_variavel %}<span class="saldo-origem o-ipca" title="Pós-fixado: taxa + IPCA">IPCA</span>{% endif %}
+          {% endif %}
+        </td>
         <td>{{ c.c_prazo | brl }}</td>
         <td>{{ c.l_prazo | brl }}</td>
         <td>
@@ -326,6 +397,8 @@
         <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='total_pago') | brl }}</td>
         <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='total') | brl }}</td>
         <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='devedor') | brl }}</td>
+        <td></td>
+        <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='saldo_real') | brl }}</td>
         <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='c_prazo') | brl }}</td>
         <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='l_prazo') | brl }}</td>
         <td></td>

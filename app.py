@@ -5320,6 +5320,106 @@ def _fin_calcular_restante(r, hoje):
     return min(restante_regular, parcelas_total)
 
 
+# ── Saldo devedor real (valor de quitação) — só FINANCIAMENTOS ───────────────
+
+# Rótulos curtos da procedência do saldo, exibidos como badge na tabela.
+FIN_ORIGEM = {
+    "carencia":       "carência",
+    "sac":            "SAC",
+    "price":          "Price",
+    "tabela":         "tabela",
+    "nominal":        "nominal",
+    "revisao_manual": "revisar",
+}
+
+# Consórcio não passa por aqui: não tem juros embutidos, o nominal já é correto.
+
+def _fin_add_meses(d, n):
+    """Avança `n` meses preservando o dia, encurtando quando o mês é mais curto."""
+    import calendar
+    m = d.month - 1 + n
+    ano = d.year + m // 12
+    mes = m % 12 + 1
+    return date(ano, mes, min(d.day, calendar.monthrange(ano, mes)[1]))
+
+
+def _fin_contar_vencidas(inicio, periodicidade, hoje):
+    """Quantas parcelas já venceram entre `inicio` (inclusive) e `hoje` (inclusive)."""
+    passo = 3 if periodicidade == "trimestral" else 1
+    n, d = 0, inicio
+    while d <= hoje:
+        n += 1
+        d = _fin_add_meses(d, passo)
+    return n
+
+
+def _fin_saldo_real(r, hoje, devedor_nominal):
+    """
+    Saldo devedor de um financiamento na data de hoje.
+
+    Devolve (saldo, origem), onde `origem` diz de onde o número veio:
+      revisao_manual  parcela vencida em aberto — encargos de mora não se estimam
+      tabela          saldo lido da tabela de parcelas do próprio contrato
+      carencia        amortização ainda não começou: principal intacto
+      sac             valor_financiado - amortização constante * parcelas vencidas
+      price           valor presente das parcelas restantes
+      nominal         contrato ainda sem termos cadastrados (comportamento antigo)
+
+    A ordem das regras é a precedência: um contrato inadimplente não é
+    recalculado mesmo tendo todos os termos preenchidos.
+    """
+    if r.get("inadimplente"):
+        return devedor_nominal, "revisao_manual"
+
+    saldo_tabela = r.get("saldo_tabela")
+    if saldo_tabela is not None:
+        return float(saldo_tabela), "tabela"
+
+    vf = r.get("valor_financiado")
+    if vf is None:
+        return devedor_nominal, "nominal"
+    vf = float(vf)
+
+    periodicidade = r.get("periodicidade") or "mensal"
+    ini_str = r.get("data_inicio_amortizacao")
+    ini = None
+    if ini_str:
+        try:
+            ini = date.fromisoformat(str(ini_str)[:10])
+        except Exception:
+            ini = None
+
+    # Carência: os pagamentos até aqui são só de juros, o principal segue cheio.
+    if ini and hoje < ini:
+        return vf, "carencia"
+
+    sistema = (r.get("sistema_amortizacao") or "").upper()
+
+    if sistema == "SAC":
+        n_amort = int(r.get("parcelas_amortizacao") or r.get("parcelas_total") or 0)
+        if n_amort <= 0 or not ini:
+            return devedor_nominal, "nominal"
+        pagas = min(_fin_contar_vencidas(ini, periodicidade, hoje), n_amort)
+        return max(vf - (vf / n_amort) * pagas, 0.0), "sac"
+
+    if sistema == "PRICE":
+        taxa = r.get("taxa_juros_am")
+        parcela = float(r.get("valor_parcela") or 0)
+        n_total = int(r.get("parcelas_amortizacao") or r.get("parcelas_total") or 0)
+        if taxa is None or parcela <= 0 or n_total <= 0 or not ini:
+            return devedor_nominal, "nominal"
+        i = float(taxa)
+        pagas = min(_fin_contar_vencidas(ini, periodicidade, hoje), n_total)
+        restantes = n_total - pagas
+        if restantes <= 0:
+            return 0.0, "price"
+        if i <= 0:
+            return parcela * restantes, "price"
+        return parcela * (1 - (1 + i) ** -restantes) / i, "price"
+
+    return devedor_nominal, "nominal"
+
+
 @app.route("/financiamentos")
 def pagina_financiamentos():
     hoje = datetime.now(_BRT).date()
@@ -5335,6 +5435,14 @@ def pagina_financiamentos():
         entrada  = float(r.get("valor_entrada") or 0)
         restante = _fin_calcular_restante(r, hoje)
         pagas    = parcelas - restante
+        devedor  = restante * parcela
+
+        tipo_c = r.get("tipo") or "financiamento"
+        if tipo_c == "consorcio":
+            # Consórcio não tem juros a descontar: o nominal já é o valor certo.
+            saldo_real, saldo_origem = devedor, "consorcio"
+        else:
+            saldo_real, saldo_origem = _fin_saldo_real(r, hoje, devedor)
 
         item = {
             "id":              r["id"],
@@ -5347,12 +5455,18 @@ def pagina_financiamentos():
             "valor_parcela":   parcela,
             "total_pago":      pagas * parcela + entrada,
             "total":           parcelas * parcela + entrada,
-            "devedor":         restante * parcela,
+            "devedor":         devedor,
+            "valor_financiado": float(r["valor_financiado"]) if r.get("valor_financiado") is not None else None,
+            "saldo_real":      saldo_real,
+            "saldo_origem":    saldo_origem,
+            "taxa_variavel":   bool(r.get("taxa_variavel")),
+            "requer_revisao":  saldo_origem == "revisao_manual",
+            "sem_cadastro":    saldo_origem == "nominal",
             "c_prazo":         min(restante, 12) * parcela,
             "l_prazo":         max(restante - 12, 0) * parcela,
             "pct_quitado":     pagas / parcelas if parcelas else 0,
             "quitado":         restante == 0,
-            "tipo":            r.get("tipo") or "financiamento",
+            "tipo":            tipo_c,
             "valor_resgate":   float(r["valor_resgate"]) if r.get("valor_resgate") is not None else None,
             "data_resgate":    str(r.get("data_resgate") or "")[:10] or None,
         }
@@ -5375,6 +5489,14 @@ def pagina_financiamentos():
     soma_mensal     = sum(c["valor_parcela"] for c in ativos)
     tempo_medio     = sum(c["restante"]      for c in ativos) / len(ativos) if ativos else 0
 
+    # Financiamento e consórcio somam separados: um é saldo real (valor de
+    # quitação), o outro é nominal. Juntar os dois num total só esconde isso.
+    fin_ativos  = [c for c in ativos if c["tipo"] != "consorcio"]
+    cons_ativos = [c for c in ativos if c["tipo"] == "consorcio"]
+    saldo_real_fin     = sum(c["saldo_real"] for c in fin_ativos)
+    saldo_nominal_fin  = sum(c["devedor"]    for c in fin_ativos)
+    saldo_nominal_cons = sum(c["devedor"]    for c in cons_ativos)
+
     ativos_vcto = [c for c in ativos if c["data_vencimento"]]
     mais_perto  = min(ativos_vcto, key=lambda x: x["data_vencimento"])["operacao"] if ativos_vcto else "—"
 
@@ -5389,6 +5511,13 @@ def pagina_financiamentos():
         "r_quitados":    sum(c["total_pago"] for c in quitados),
         "pct_cp":        soma_c_prazo / soma_devedor if soma_devedor else 0,
         "pct_lp":        soma_l_prazo / soma_devedor if soma_devedor else 0,
+        "saldo_real_fin":     saldo_real_fin,
+        "saldo_nominal_fin":  saldo_nominal_fin,
+        "saldo_nominal_cons": saldo_nominal_cons,
+        "n_fin":              len(fin_ativos),
+        "n_cons":             len(cons_ativos),
+        "n_sem_cadastro":     sum(1 for c in fin_ativos if c["sem_cadastro"]),
+        "n_requer_revisao":   sum(1 for c in fin_ativos if c["requer_revisao"]),
     }
 
     return render_template("financiamentos.html",
@@ -5396,6 +5525,7 @@ def pagina_financiamentos():
         contratos=contratos,
         vendidos=vendidos,
         cards=cards,
+        FIN_ORIGEM=FIN_ORIGEM,
     )
 
 
