@@ -94,3 +94,65 @@ where id = '4aced2ac-c441-44bf-9fac-89975848c895';
 -- Os 3 PDFs em "Financiamentos Ativuz/" (37.258,00 / Compra 15.942,00 /
 -- Compra 46.800,00) são imagens sem camada de texto: precisam de OCR ou
 -- digitação manual.
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- Segunda leva — conferida contra o controle de contratos
+-- ════════════════════════════════════════════════════════════════════════════
+-- Os 3 PDFs de "Financiamentos Ativuz/" são imagens sem camada de texto; o
+-- valor financiado veio do nome do arquivo e foi confirmado pelo controle.
+-- A taxa não é legível nesses documentos e fica NULL: o saldo SAC não depende
+-- dela (só o rateio de juros da parcela depende).
+
+-- 183/003 · RQI-7A69 / RQI-7A89 ← "37.258,00.pdf" · 48 parcelas, 1ª 15/10/2025
+update public.financiamentos_contratos set
+  valor_financiado = 37258.00, sistema_amortizacao = 'SAC',
+  parcelas_amortizacao = 48, data_inicio_amortizacao = '2025-10-15',
+  periodicidade = 'mensal', taxa_variavel = false
+where id = '8f102762-a238-47ee-9287-a53cdcb4908f';
+
+-- 183/002 · EGX-2E31 ← "Compra 46.800,00.pdf" · 36 parcelas, 1ª 15/04/2025
+update public.financiamentos_contratos set
+  valor_financiado = 46800.00, sistema_amortizacao = 'SAC',
+  parcelas_amortizacao = 36, data_inicio_amortizacao = '2025-04-15',
+  periodicidade = 'mensal', taxa_variavel = false
+where id = '25d587f1-2809-44b6-bd56-a1e33af1e86e';
+
+-- 183/004 · RQJ-7H29 ← "Compra 15.942,00.pdf" · 48 parcelas, 1ª 15/05/2025
+update public.financiamentos_contratos set
+  valor_financiado = 15942.00, sistema_amortizacao = 'SAC',
+  parcelas_amortizacao = 48, data_inicio_amortizacao = '2025-05-15',
+  periodicidade = 'mensal', taxa_variavel = false
+where id = '7e8923af-7b71-4978-8b31-aa33b4f7a30b';
+
+-- 183/002 · RUC-8C45 ("BNB 4") ← "Demonstrativos - Ativuz - Compras 2026.pdf"
+-- A tabela impressa traz principal constante de 1.350,00 (44.550 / 33), parcela
+-- 1 em 15/05/2026 só de juros e a 1ª de principal em 15/06/2026, fechando em
+-- 15/02/2029 — o vencimento já registrado nesta linha.
+update public.financiamentos_contratos set
+  valor_financiado = 44550.00, sistema_amortizacao = 'SAC',
+  parcelas_amortizacao = 33, data_inicio_amortizacao = '2026-06-15',
+  periodicidade = 'mensal', taxa_variavel = false
+where id = '7600898a-2c4a-4f68-9ce2-c81680125e7c';
+
+-- Sicredi 01 · 10585560 (FIN-1028) · PRICE · 2,0000% a.m.
+-- A taxa foi confirmada por dois caminhos independentes: é a que reproduz o
+-- valor financiado de 21.029,54 a partir de 46 parcelas de 703,51, e é a mesma
+-- que gera o saldo de 16.876,19 com 33 parcelas restantes.
+update public.financiamentos_contratos set
+  valor_financiado = 21029.54, sistema_amortizacao = 'PRICE',
+  parcelas_amortizacao = 46, data_inicio_amortizacao = '2025-08-12',
+  periodicidade = 'mensal', taxa_variavel = false, taxa_juros_am = 0.020000
+where id = '42a8cda6-42b1-44dc-8c0b-4f98af94c23c';
+
+-- Cartão BNB 02 · BNB-CARD/02 ("BNB 5") · em carência
+-- ATENÇÃO: só o valor financiado (95.310,99) é documentado. O cronograma abaixo
+-- foi DERIVADO do vencimento de 15/08/2031 e das 52 parcelas registradas, não
+-- lido de contrato. Enquanto o contrato estiver em carência o saldo é o valor
+-- financiado e isso não afeta o número; a partir de 15/05/2027 afeta. Substitua
+-- pelos dados reais antes dessa data.
+update public.financiamentos_contratos set
+  valor_financiado = 95310.99, sistema_amortizacao = 'SAC',
+  parcelas_amortizacao = 52, data_inicio_amortizacao = '2027-05-15',
+  periodicidade = 'mensal', taxa_variavel = false
+where id = 'def23e9f-0dfd-4b23-8538-919827cabd40';
