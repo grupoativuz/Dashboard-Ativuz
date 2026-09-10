@@ -69,6 +69,10 @@
 .saldo-origem.o-nominal        { background: #f1f5f9; color: #64748b; }
 .saldo-origem.o-revisao_manual { background: #fee2e2; color: #991b1b; }
 .saldo-origem.o-ipca           { background: #ede9fe; color: #5b21b6; }
+/* Marca compacta de "há mais uma característica" (hoje: pós-fixado + IPCA).
+   Mantém a origem do saldo como informação principal e evita duas etiquetas
+   competindo na mesma célula. O detalhe fica no title. */
+.saldo-origem.o-mais           { background: #ede9fe; color: #5b21b6; cursor: help; }
 
 /* ── Search ── */
 .fin-search {
@@ -372,7 +376,7 @@
           {% else %}
             <span class="saldo-real {{ 'saldo-estimado' if c.sem_cadastro or c.requer_revisao }}">{{ c.saldo_real | brl }}</span>
             <span class="saldo-origem o-{{ c.saldo_origem }}">{{ FIN_ORIGEM.get(c.saldo_origem, c.saldo_origem) }}</span>
-            {% if c.taxa_variavel %}<span class="saldo-origem o-ipca" title="Pós-fixado: taxa + IPCA">IPCA</span>{% endif %}
+            {% if c.taxa_variavel %}<span class="saldo-origem o-mais" title="Também: pós-fixado (taxa + IPCA)">+1</span>{% endif %}
           {% endif %}
         </td>
         <td>{{ c.c_prazo | brl }}</td>
