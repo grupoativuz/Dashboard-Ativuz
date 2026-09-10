@@ -450,7 +450,6 @@ const PL = {{ patrimonio|tojson }};
     comparar(elVsLiq,  r, PL.selic_liquida, 'Selic líquida');
     comparar(elVsBrut, r, PL.selic_bruta,   'Selic bruta');
   }
-  recalcular();
 
   /* Salva no banco ao sair do campo. Enter confirma. */
   function salvar(input) {
@@ -484,6 +483,8 @@ const PL = {{ patrimonio|tojson }};
     el.addEventListener('blur',  () => { formatar(el); salvar(el); });
     el.addEventListener('keydown', e => { if (e.key === 'Enter') el.blur(); });
   });
+
+  recalcular();   /* só agora: os campos já têm valor */
 })();
 const brl = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 
