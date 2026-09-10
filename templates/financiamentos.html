@@ -52,6 +52,15 @@
   line-height: 1.5; margin: -16px 0 24px;
 }
 
+/* Coluna Valor Presente: o número e a etiqueta ficam em duas faixas de largura
+   fixa, senão o conjunto é centralizado junto e cada etiqueta de largura
+   diferente desloca o número da sua linha. Assim os números alinham pela
+   direita e as etiquetas pela esquerda, em todas as linhas. */
+.vp-cell { display: inline-flex; align-items: center; gap: 6px; }
+.vp-num  { min-width: 72px; text-align: right;  font-variant-numeric: tabular-nums; }
+.vp-tag  { min-width: 76px; text-align: left; }
+.vp-tag .saldo-origem { margin-left: 0; }
+
 /* Saldo devedor real e a procedência do número */
 .saldo-real { font-variant-numeric: tabular-nums; }
 .saldo-real.saldo-estimado { color: var(--ink-3); }
@@ -376,13 +385,18 @@
         <td>{{ c.total | brl }}</td>
         <td>{{ c.devedor | brl }}</td>
         <td>
+          <span class="vp-cell">
           {% if c.tipo == 'consorcio' %}
-            <span class="saldo-na" title="Consórcio: o saldo é o nominal das parcelas restantes">—</span>
+            <span class="vp-num saldo-na" title="Consórcio: o saldo é o nominal das parcelas restantes">—</span>
+            <span class="vp-tag"></span>
           {% else %}
-            <span class="saldo-real {{ 'saldo-estimado' if c.sem_cadastro or c.requer_revisao }}">{{ c.saldo_real | brl }}</span>
-            <span class="saldo-origem o-{{ c.saldo_origem }}">{{ FIN_ORIGEM.get(c.saldo_origem, c.saldo_origem) }}</span>
-            {% if c.taxa_variavel %}<span class="saldo-origem o-mais" title="Também: pós-fixado (taxa + IPCA)">+1</span>{% endif %}
+            <span class="vp-num saldo-real {{ 'saldo-estimado' if c.sem_cadastro or c.requer_revisao }}">{{ c.saldo_real | brl }}</span>
+            <span class="vp-tag">
+              <span class="saldo-origem o-{{ c.saldo_origem }}">{{ FIN_ORIGEM.get(c.saldo_origem, c.saldo_origem) }}</span>
+              {%- if c.taxa_variavel %}<span class="saldo-origem o-mais" title="Também: pós-fixado (taxa + IPCA)">+1</span>{% endif %}
+            </span>
           {% endif %}
+          </span>
         </td>
         <td>{{ c.c_prazo | brl }}</td>
         <td>{{ c.l_prazo | brl }}</td>
@@ -409,7 +423,9 @@
         <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='total_pago') | brl }}</td>
         <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='total') | brl }}</td>
         <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='devedor') | brl }}</td>
-        <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='saldo_real') | brl }}</td>
+        <td style="font-weight:700;color:var(--ink)">
+          <span class="vp-cell"><span class="vp-num">{{ contratos | sum(attribute='saldo_real') | brl }}</span><span class="vp-tag"></span></span>
+        </td>
         <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='c_prazo') | brl }}</td>
         <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='l_prazo') | brl }}</td>
         <td></td>
