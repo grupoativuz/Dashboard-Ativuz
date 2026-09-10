@@ -226,8 +226,9 @@
   {# Row 1 #}
   <div class="fin-card-row r4">
     <div class="fin-card">
-      <div class="fin-card-label">Saldo Devedor</div>
-      <div class="fin-card-value">R$ {{ cards.saldo_devedor | brl }}</div>
+      <div class="fin-card-label">Dívida Presente</div>
+      <div class="fin-card-value">R$ {{ cards.divida_presente | brl }}</div>
+      <div class="fin-card-sub">valor presente dos financiamentos + consórcios</div>
     </div>
     <div class="fin-card">
       <div class="fin-card-label">Total Pago</div>
@@ -266,9 +267,9 @@
   {# Row 3 — subtotais separados: naturezas de cálculo diferentes #}
   <div class="fin-card-row r2">
     <div class="fin-card">
-      <div class="fin-card-label">Saldo Real &middot; Financiamentos ({{ cards.n_fin }})</div>
+      <div class="fin-card-label">Valor Presente &middot; Financiamentos ({{ cards.n_fin }})</div>
       <div class="fin-card-value">R$ {{ cards.saldo_real_fin | brl }}</div>
-      <div class="fin-card-sub">valor de quitação hoje &middot; nominal R$ {{ cards.saldo_nominal_fin | brl }}</div>
+      <div class="fin-card-sub">valor de quitação &middot; saldo devedor nominal R$ {{ cards.saldo_nominal_fin | brl }}</div>
     </div>
     <div class="fin-card">
       <div class="fin-card-label">Saldo Nominal &middot; Consórcios ({{ cards.n_cons }})</div>
@@ -323,8 +324,7 @@
         <th>Total Pago</th>
         <th>Total</th>
         <th>Devedor</th>
-        <th>Financiado</th>
-        <th>Saldo Hoje</th>
+        <th>Valor Presente</th>
         <th>C. Prazo</th>
         <th>L. Prazo</th>
         <th>% Quitado</th>
@@ -366,7 +366,6 @@
         <td>{{ c.total_pago | brl }}</td>
         <td>{{ c.total | brl }}</td>
         <td>{{ c.devedor | brl }}</td>
-        <td>{% if c.valor_financiado is not none %}{{ c.valor_financiado | brl }}{% else %}—{% endif %}</td>
         <td>
           {% if c.tipo == 'consorcio' %}
             <span class="saldo-na" title="Consórcio: o saldo é o nominal das parcelas restantes">—</span>
@@ -401,7 +400,6 @@
         <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='total_pago') | brl }}</td>
         <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='total') | brl }}</td>
         <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='devedor') | brl }}</td>
-        <td></td>
         <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='saldo_real') | brl }}</td>
         <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='c_prazo') | brl }}</td>
         <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='l_prazo') | brl }}</td>

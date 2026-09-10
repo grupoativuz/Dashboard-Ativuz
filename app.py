@@ -5558,7 +5558,14 @@ def pagina_financiamentos():
     ativos_vcto = [c for c in ativos if c["data_vencimento"]]
     mais_perto  = min(ativos_vcto, key=lambda x: x["data_vencimento"])["operacao"] if ativos_vcto else "—"
 
+    # A dívida presente é o que a empresa deve HOJE: valor presente dos
+    # financiamentos mais o nominal dos consórcios (que não têm juros a
+    # descontar). `soma_devedor`, o nominal puro, continua existindo — mas
+    # aparece só no rodapé da tabela, não como número de capa.
+    divida_presente = sum(c["saldo_real"] for c in ativos)
+
     cards = {
+        "divida_presente": divida_presente,
         "saldo_devedor": soma_devedor,
         "total_pago":    soma_total_pago,
         "curto_prazo":   soma_c_prazo,
@@ -5567,6 +5574,8 @@ def pagina_financiamentos():
         "tempo_medio":   round(tempo_medio, 1),
         "mais_perto":    mais_perto,
         "r_quitados":    sum(c["total_pago"] for c in quitados),
+        # Denominador é o nominal de propósito: c_prazo + l_prazo == soma_devedor,
+        # então dividir pela dívida presente faria os dois somarem mais de 100%.
         "pct_cp":        soma_c_prazo / soma_devedor if soma_devedor else 0,
         "pct_lp":        soma_l_prazo / soma_devedor if soma_devedor else 0,
         "saldo_real_fin":     saldo_real_fin,
