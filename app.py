@@ -7563,7 +7563,8 @@ def _ad_divida():
         rows = sb.table("financiamentos_contratos").select("*").execute().data or []
     except Exception:
         return {"total": 0.0, "curto": 0.0, "longo": 0.0, "contratos": 0,
-                "nao_iniciada": 0.0, "em_curso": 0.0, "contratos_nao_iniciados": 0}
+                "nao_iniciada": 0.0, "em_curso": 0.0, "contratos_nao_iniciados": 0,
+                "financiamento": 0.0, "consorcio": 0.0}
 
     agora = datetime.now(_BRT).date()
     comp  = _fin_data_referencia(agora)
@@ -7571,6 +7572,7 @@ def _ad_divida():
     total = curto = longo = 0.0
     nao_iniciada = 0.0
     n = n_nao_iniciados = 0
+    por_tipo = {"financiamento": 0.0, "consorcio": 0.0}
     for r in rows:
         if r.get("vendido"):
             continue
@@ -7583,7 +7585,8 @@ def _ad_divida():
         if restante <= 0:
             continue
 
-        if (r.get("tipo") or "financiamento") == "consorcio":
+        tipo = "consorcio" if (r.get("tipo") or "financiamento") == "consorcio" else "financiamento"
+        if tipo == "consorcio":
             # Consórcio não tem juros embutidos: o nominal já é o valor presente.
             saldo, origem = restante * parcela, "consorcio"
             ref12  = _fin_add_meses(ref, 12)
@@ -7596,6 +7599,7 @@ def _ad_divida():
 
         n += 1
         total += saldo
+        por_tipo[tipo] += saldo
         curto += max(0.0, saldo - saldo12)
         longo += min(saldo, saldo12)
 
@@ -7620,7 +7624,9 @@ def _ad_divida():
 
     return {"total": total, "curto": curto, "longo": longo, "contratos": n,
             "nao_iniciada": nao_iniciada, "em_curso": total - nao_iniciada,
-            "contratos_nao_iniciados": n_nao_iniciados}
+            "contratos_nao_iniciados": n_nao_iniciados,
+            "financiamento": por_tipo["financiamento"],
+            "consorcio": por_tipo["consorcio"]}
 
 
 def _ad_frota_valor():
@@ -7709,6 +7715,64 @@ def _ad_receita_por_cliente(lancamentos, limite=10):
     return [{"nome": n, "valor": v, "valor_s": _brl(v),
              "pct": round(100 * v / total, 1)} for n, v in top]
 
+
+
+# ── Parâmetros editáveis pela interface ───────────────────────────────────────
+# Tabela chave/valor (db/migrate_parametros.sql). Números que mudam com o
+# mercado ou com o dia — quem atualiza é o usuário na tela, não o código.
+
+# Só estas chaves podem ser gravadas pela API. Qualquer outra é recusada.
+_PARAMS_EDITAVEIS = {"pl_frota_fipe", "pl_saldo_conta"}
+
+
+def _param_get_todos(chaves):
+    """Lê os parâmetros pedidos. Chave sem linha no banco vale 0.0."""
+    valores = {c: 0.0 for c in chaves}
+    try:
+        sb = _supabase()
+        if sb is None:
+            return valores
+        rows = (sb.table("parametros").select("chave, valor")
+                  .in_("chave", list(chaves)).execute().data or [])
+    except Exception:
+        return valores
+    for r in rows:
+        try:
+            valores[r["chave"]] = float(r["valor"] or 0)
+        except (KeyError, TypeError, ValueError):
+            continue
+    return valores
+
+
+@app.route("/api/parametros", methods=["POST"])
+def api_parametros_salvar():
+    """Grava um parâmetro editável. Mesmo desenho de /api/hodometros."""
+    body  = request.get_json(force=True) or {}
+    chave = (body.get("chave") or "").strip()
+    if chave not in _PARAMS_EDITAVEIS:
+        return jsonify({"error": f"parâmetro desconhecido: {chave or '(vazio)'}"}), 400
+
+    bruto = body.get("valor")
+    if bruto is None or str(bruto).strip() == "":
+        valor = 0.0          # campo esvaziado volta a zero
+    else:
+        try:
+            valor = float(str(bruto).strip())
+        except (TypeError, ValueError):
+            return jsonify({"error": "valor precisa ser um número"}), 400
+
+    sb = _supabase()
+    if not sb:
+        return jsonify({"error": "Supabase indisponível"}), 503
+    try:
+        sb.table("parametros").upsert(
+            {"chave": chave, "valor": valor,
+             "updated_at": datetime.now(_BRT).isoformat()},
+            on_conflict="chave",
+        ).execute()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    return jsonify({"ok": True, "valor": valor})
 
 
 # ── Análise de Dados ──────────────────────────────────────────────────────────
@@ -7809,10 +7873,21 @@ def pagina_benchmarking():
     opcoes = [{"valor": f"{a}-{mm:02d}", "label": f"{mm:02d}/{a}"}
               for a, mm in reversed(disponiveis)]
 
+    # Patrimônio líquido: frota (FIPE) - dívida presente + saldo em conta.
+    # Números crus, não formatados: o JS recalcula o resultado a cada digitação.
+    params = _param_get_todos(_PARAMS_EDITAVEIS)
+    patrimonio = {
+        "frota_fipe":    params["pl_frota_fipe"],
+        "saldo_conta":   params["pl_saldo_conta"],
+        "div_financ":    divida["financiamento"],
+        "div_consorcio": divida["consorcio"],
+    }
+
     return render_template("benchmarking.html", active="benchmarking",
                            kpis=kpis, serie=serie, clientes=clientes,
                            serie_frota=frota["serie"], serie_inad=inad["serie"],
-                           opcoes=opcoes, periodo_sel=periodo_val)
+                           opcoes=opcoes, periodo_sel=periodo_val,
+                           patrimonio=patrimonio)
 
 
 @app.route("/configuracoes")

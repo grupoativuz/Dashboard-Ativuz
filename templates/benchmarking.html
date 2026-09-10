@@ -27,6 +27,51 @@
   line-height: 1; font-variant-numeric: tabular-nums;
 }
 
+/* ── Patrimônio Líquido ── */
+.pl-box {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; padding: 18px 20px;
+}
+.pl-linha {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 9px 0; font-size: 14px; color: var(--ink);
+}
+.pl-linha + .pl-linha { border-top: 1px solid var(--line); }
+.pl-rotulo { display: flex; align-items: baseline; gap: 8px; }
+.pl-op { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.pl-valor { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pl-detalhe {
+  display: flex; gap: 24px; padding: 0 0 10px 0;
+  font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums;
+}
+.pl-detalhe span b { font-weight: 600; color: var(--ink-3); }
+.pl-total {
+  margin-top: 4px; border-top: 2px solid var(--ink); padding-top: 12px;
+}
+.pl-total .pl-rotulo {
+  font-weight: 700; text-transform: uppercase;
+  font-size: 12px; letter-spacing: .05em;
+}
+.pl-total .pl-valor { font-size: 24px; font-weight: 700; }
+.pl-negativo { color: var(--danger, #d92d20); }
+/* Campo editável: mesmo desenho do hodômetro (checklist) */
+.pl-input {
+  width: 190px; padding: 6px 10px; text-align: right;
+  font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--ink); background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 8px; font-family: inherit;
+}
+.pl-input:focus {
+  outline: none; border-color: var(--brand-orange);
+  box-shadow: 0 0 0 3px rgba(255, 71, 19, .12);
+}
+.pl-input.saving { opacity: .5; }
+.pl-edit { font-size: 11px; color: var(--ink-4, var(--ink-3)); }
+@media (max-width: 640px) {
+  .pl-linha { flex-wrap: wrap; }
+  .pl-input { width: 100%; }
+}
+
 /* ── Sections ── */
 .an-section { margin-bottom: 32px; }
 .an-chart-wrap { position: relative; height: 300px; }
@@ -118,6 +163,53 @@
       <div class="an-kpi-label">Taxa de Inadimplência</div>
       <div class="an-kpi-value">{{ kpis.taxa_inad }}</div>
       <div class="an-kpi-label" style="margin-top:4px">{{ kpis.inad_total }} · {{ kpis.inad_casos }} casos</div>
+    </div>
+  </div>
+
+  <!-- ── Patrimônio Líquido ── -->
+  <div class="an-section" id="pl-card">
+    <div class="an-section-head">
+      <div>
+        <div class="an-section-title">Patrimônio Líquido</div>
+        <div class="an-section-sub">Frota a valor de mercado, menos a dívida trazida a valor presente, mais o caixa</div>
+      </div>
+    </div>
+    <div class="pl-box">
+
+      <div class="pl-linha">
+        <div class="pl-rotulo">
+          Valor da Frota (FIPE)
+          <span class="pl-edit">editável</span>
+        </div>
+        <input type="number" step="0.01" class="pl-input" id="pl-frota"
+               data-chave="pl_frota_fipe" value="{{ patrimonio.frota_fipe }}"
+               placeholder="0,00" aria-label="Valor da Frota (FIPE)">
+      </div>
+
+      <div class="pl-linha">
+        <div class="pl-rotulo"><span class="pl-op">(&minus;)</span> Dívida Presente</div>
+        <div class="pl-valor" id="pl-divida"></div>
+      </div>
+      <div class="pl-detalhe">
+        <span>financiamento <b id="pl-div-financ"></b></span>
+        <span>consórcio <b id="pl-div-consorcio"></b></span>
+      </div>
+
+      <div class="pl-linha">
+        <div class="pl-rotulo">
+          <span class="pl-op">(+)</span> Saldo em Conta
+          <span class="pl-edit">editável</span>
+        </div>
+        <input type="number" step="0.01" class="pl-input" id="pl-saldo"
+               data-chave="pl_saldo_conta" value="{{ patrimonio.saldo_conta }}"
+               placeholder="0,00" aria-label="Saldo em Conta">
+      </div>
+
+      <div class="pl-linha pl-total">
+        <div class="pl-rotulo">Resultado</div>
+        <div class="pl-valor" id="pl-resultado"></div>
+      </div>
+
     </div>
   </div>
 
@@ -224,6 +316,64 @@ const AD_SERIE = {{ serie|tojson }};
 const AD_FROTA = {{ serie_frota|tojson }};
 const AD_INAD  = {{ serie_inad|tojson }};
 const AD_AQUIS = {{ kpis.frota_aquisicao|tojson }};
+
+/* ── Patrimônio Líquido ───────────────────────────────────────────────────── */
+const PL = {{ patrimonio|tojson }};
+
+(function () {
+  const elFrota  = document.getElementById('pl-frota');
+  const elSaldo  = document.getElementById('pl-saldo');
+  const elResult = document.getElementById('pl-resultado');
+  if (!elFrota) return;
+
+  const brl = v => (v < 0 ? '-' : '') + 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const num = el => { const v = parseFloat(el.value); return isNaN(v) ? 0 : v; };
+
+  const divida = PL.div_financ + PL.div_consorcio;
+  document.getElementById('pl-divida').textContent       = brl(divida);
+  document.getElementById('pl-div-financ').textContent    = brl(PL.div_financ);
+  document.getElementById('pl-div-consorcio').textContent = brl(PL.div_consorcio);
+
+  function recalcular() {
+    const r = num(elFrota) - divida + num(elSaldo);
+    elResult.textContent = brl(r);
+    elResult.classList.toggle('pl-negativo', r < 0);
+  }
+  recalcular();
+
+  /* Salva no banco ao sair do campo. Enter confirma. */
+  function salvar(input) {
+    const valor = input.value.trim();
+    if (valor === (input.dataset.salvo ?? input.defaultValue)) return;  /* nada mudou */
+    input.classList.add('saving');
+    fetch('/api/parametros', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chave: input.dataset.chave, valor: valor })
+    })
+      .then(r => r.json())
+      .then(d => {
+        input.classList.remove('saving');
+        if (d.error) { alert('Não foi possível salvar: ' + d.error); return; }
+        input.dataset.salvo = String(d.valor);
+        input.value = d.valor;
+        recalcular();
+      })
+      .catch(() => {
+        input.classList.remove('saving');
+        alert('Não foi possível salvar: falha de conexão.');
+      });
+  }
+
+  [elFrota, elSaldo].forEach(el => {
+    el.dataset.salvo = el.defaultValue;
+    el.addEventListener('input', recalcular);        /* número acompanha a digitação */
+    el.addEventListener('blur',  () => salvar(el));
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') el.blur(); });
+  });
+})();
 const brl = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 
 new Chart(document.getElementById('chart-receita'), {
