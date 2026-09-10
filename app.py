@@ -5339,6 +5339,41 @@ def _fin_data_referencia(hoje):
     return date(hoje.year, hoje.month - 1, FIN_DIA_VIRADA)
 
 
+def _fin_ref_contrato(r, competencia, agora):
+    """
+    Data de competência de UM contrato.
+
+    A virada do dia FIN_DIA_VIRADA é anterior ao vencimento de alguns contratos
+    — hoje só o consórcio 9651/113 (Joel 02), que vence dia 27. Para esses, a
+    competência do mês cairia antes da parcela vencer e ela ficaria um mês
+    inteiro sem aparecer. Aqui a referência é empurrada para a frente até o
+    último vencimento do próprio contrato que já passou, nunca além da data
+    real. Contratos que vencem até o dia da virada não são afetados.
+    """
+    venc = r.get("data_inicio_amortizacao") or r.get("data_vencimento")
+    if not venc:
+        return competencia
+    try:
+        dia = int(str(venc)[8:10])
+    except (ValueError, IndexError):
+        return competencia
+    if dia <= FIN_DIA_VIRADA:
+        return competencia
+
+    import calendar
+
+    def no_mes(ano, mes):
+        # Recorta a partir do dia ORIGINAL: recortar primeiro e só depois voltar
+        # um mês perderia o dia (31 viraria 28 e o mês anterior daria 28, não 31).
+        return date(ano, mes, min(dia, calendar.monthrange(ano, mes)[1]))
+
+    ultimo = no_mes(agora.year, agora.month)
+    if ultimo > agora:
+        ano, mes = (agora.year - 1, 12) if agora.month == 1 else (agora.year, agora.month - 1)
+        ultimo = no_mes(ano, mes)
+    return max(competencia, ultimo)
+
+
 # Rótulos curtos da procedência do saldo, exibidos como badge na tabela.
 FIN_ORIGEM = {
     "carencia":       "carência",
@@ -5453,7 +5488,10 @@ def pagina_financiamentos():
         parcelas = int(r["parcelas_total"])
         parcela  = float(r["valor_parcela"])
         entrada  = float(r.get("valor_entrada") or 0)
-        restante = _fin_calcular_restante(r, hoje)
+        # Cada contrato pode ter uma competência ligeiramente à frente da
+        # competência da página, se vencer depois do dia da virada.
+        ref_c    = _fin_ref_contrato(r, hoje, agora)
+        restante = _fin_calcular_restante(r, ref_c)
         pagas    = parcelas - restante
         devedor  = restante * parcela
 
@@ -5462,7 +5500,7 @@ def pagina_financiamentos():
             # Consórcio não tem juros a descontar: o nominal já é o valor certo.
             saldo_real, saldo_origem = devedor, "consorcio"
         else:
-            saldo_real, saldo_origem = _fin_saldo_real(r, hoje, devedor)
+            saldo_real, saldo_origem = _fin_saldo_real(r, ref_c, devedor)
 
         item = {
             "id":              r["id"],
