@@ -5507,6 +5507,10 @@ def pagina_financiamentos():
             "operacao":        r["operacao"],
             "contrato":        r.get("contrato") or "",
             "placa":           r.get("placa") or "",
+            # Alguns contratos cobrem mais de um veículo ("RQI-7A69 / RQI-7A89").
+            # A célula mostra só a primeira e sinaliza o resto com "+N"; a busca
+            # continua usando `placa` inteira, então acha qualquer uma delas.
+            "placas":          [p.strip() for p in (r.get("placa") or "").split("/") if p.strip()],
             "data_vencimento": str(r.get("data_vencimento") or "")[:10] or None,
             "restante":        restante,
             "parcelas_total":  parcelas,

@@ -358,7 +358,12 @@
             {% endif %}
           {% else %}{{ c.contrato }}{% endif %}
         </td>
-        <td>{{ c.placa }}</td>
+        <td>
+          {% if c.placas | length > 1 %}
+            {{ c.placas[0] }}<span class="saldo-origem o-mais"
+              title="Também: {{ c.placas[1:] | join(', ') }}">+{{ c.placas | length - 1 }}</span>
+          {% else %}{{ c.placa }}{% endif %}
+        </td>
         <td class="col-vencimento">
           {% if c.data_vencimento %}
             {{ c.data_vencimento[8:10] }}/{{ c.data_vencimento[5:7] }}/{{ c.data_vencimento[:4] }}
@@ -452,7 +457,12 @@
               {% endif %}
             {% else %}{{ c.contrato }}{% endif %}
           </td>
-          <td>{{ c.placa }}</td>
+          <td>
+            {% if c.placas | length > 1 %}
+              {{ c.placas[0] }}<span class="saldo-origem o-mais"
+                title="Também: {{ c.placas[1:] | join(', ') }}">+{{ c.placas | length - 1 }}</span>
+            {% else %}{{ c.placa }}{% endif %}
+          </td>
           <td>{{ c.parcelas_total }}</td>
           <td>{{ c.valor_parcela | brl }}</td>
           <td>{{ c.total_pago | brl }}</td>
