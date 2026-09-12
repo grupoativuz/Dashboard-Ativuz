@@ -466,6 +466,12 @@
     text-overflow: ellipsis;
     min-width: 0;
     flex: 1;
+    cursor: pointer;
+    transition: color .12s;
+  }
+  .client-card-name:hover {
+    color: var(--brand-orange);
+    text-decoration: underline;
   }
 
   .badge-freq {
@@ -1145,13 +1151,16 @@
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
         <input type="text" id="search-nome" class="inad-search-input" placeholder="Buscar cliente pelo nome…" autocomplete="off">
-        <div id="search-dropdown" class="search-dropdown" style="display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #cbd5e1; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.1); z-index:100; max-height:220px; overflow-y:auto;"></div>
+        <div id="search-dropdown" class="search-dropdown" style="display:none;"></div>
       </div>
     </div>
 
     <!-- Resumo do cliente durante busca -->
     <div id="search-summary" style="display:none; background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:10px 14px; margin-top:4px;">
-      <div style="font-size:0.72rem;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;" id="sum-nome"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-size:0.72rem;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:.05em;" id="sum-nome"></span>
+        <button id="sum-btn-modal" type="button" style="display:none;background:#0284c7;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;">Ver faturas detalhadas →</button>
+      </div>
       <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">
         <div><div style="font-size:0.68rem;color:#64748b;">Registros</div><div style="font-size:0.95rem;font-weight:700;color:#0f172a;" id="sum-count"></div></div>
         <div><div style="font-size:0.68rem;color:#64748b;">Original</div><div style="font-size:0.88rem;font-weight:600;color:#0f172a;" id="sum-valor"></div></div>
@@ -1187,6 +1196,7 @@
       <div class="inad-card-item"
            style="border-left-color: {{ b_color }};"
            data-nome="{{ r.nome | lower | e }}"
+           data-doc="{{ (r.num_doc or '') | lower | e }}"
            data-dias="{{ dias }}"
            data-situacao="{{ r.situacao_key }}"
            data-total="{{ r._total }}"
@@ -1196,7 +1206,7 @@
         <div class="card-top-line">
           <div class="card-client-left">
             <div class="client-avatar-circle">{{ initials }}</div>
-            <span class="client-card-name" title="Ver faturas de {{ r.nome }}" onclick="abrirDebitosModal({{ r.nome | tojson }})" style="cursor:pointer;">{{ r.nome }}</span>
+            <span class="client-card-name" title="Ver débitos e faturas de {{ r.nome }}" onclick="abrirDebitosModal({{ r.nome | tojson }})">{{ r.nome }}</span>
             <span class="badge-freq {% if r.reincidente %}badge-reincidente{% else %}badge-primeira{% endif %}">
               {% if r.reincidente %}Reincidente{% else %}1ª vez{% endif %}
             </span>
@@ -1271,6 +1281,7 @@
           {% set dias = r.dias_atraso %}
           <tr class="inad-tr-item"
               data-nome="{{ r.nome | lower | e }}"
+              data-doc="{{ (r.num_doc or '') | lower | e }}"
               data-dias="{{ dias }}"
               data-situacao="{{ r.situacao_key }}"
               data-total="{{ r._total }}"
@@ -1278,7 +1289,7 @@
             <td>
               <div style="display:flex;align-items:center;gap:7px;">
                 <div class="client-avatar-circle" style="width:24px;height:24px;font-size:0.62rem;">{{ initials }}</div>
-                <strong style="color:var(--text-main);cursor:pointer;" onclick="abrirDebitosModal({{ r.nome | tojson }})" title="Ver faturas de {{ r.nome }}">{{ r.nome }}</strong>
+                <strong style="color:var(--text-main);cursor:pointer;" onclick="abrirDebitosModal({{ r.nome | tojson }})" title="Ver débitos e faturas de {{ r.nome }}">{{ r.nome }}</strong>
                 <span class="badge-freq {% if r.reincidente %}badge-reincidente{% else %}badge-primeira{% endif %}">
                   {% if r.reincidente %}Reinc.{% else %}1ª{% endif %}
                 </span>
@@ -1701,11 +1712,11 @@ const _detalhe = [
     num_doc:  {{ r.num_doc | tojson }},
     venc:     {{ r.data_vencimento | tojson }},
     valor_s:  {{ r.valor_s | tojson }},
-    valor:    {{ r._valor }},
+    valor:    {{ r._valor | default(0) }},
     multa_s:  {{ r.multa_s | tojson }},
-    multa:    {{ r.multa_num }},
+    multa:    {{ r._multa | default(0) }},
     total_s:  {{ r.total_s | tojson }},
-    total:    {{ r._total }}
+    total:    {{ r._total | default(0) }}
   }{% if not loop.last %},{% endif %}
   {% endfor %}
 ];
@@ -1715,9 +1726,9 @@ const _fin = [
   {
     nome:     {{ r.nome | tojson }},
     nomeN:    {{ r.nome | lower | tojson }},
-    valor:    {{ r._valor }},
-    multa:    {{ r.multa_num }},
-    total:    {{ r._total }},
+    valor:    {{ r._valor | default(0) }},
+    multa:    {{ r._multa | default(0) }},
+    total:    {{ r._total | default(0) }},
     temMulta: {{ 'true' if r.tem_multa else 'false' }}
   }{% if not loop.last %},{% endif %}
   {% endfor %}
@@ -1758,6 +1769,25 @@ function copiarMsgTexto(btn, idx) {
 }
 
 
+/* ── Normalização de String (ignora acentos e maiúsculas/minúsculas) ── */
+function _norm(s) {
+  return (s || '')
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+_detalhe.forEach(function (r) {
+  r._norm = _norm(r.nome);
+  r._normDoc = _norm(r.num_doc);
+});
+
+_fin.forEach(function (r) {
+  r._norm = _norm(r.nome);
+});
+
 /* ── Helper de Formatação BRL ── */
 function _brlFmt(v) {
   var s = (parseFloat(v) || 0).toFixed(2).replace('.', ',');
@@ -1768,9 +1798,10 @@ function _brlFmt(v) {
 function atualizarResumo(txt) {
   var box = document.getElementById('search-summary');
   if (!box) return;
-  if (!txt) { box.style.display = 'none'; return; }
+  var q = _norm(txt);
+  if (!q) { box.style.display = 'none'; return; }
 
-  var matches = _fin.filter(function (r) { return r.nomeN.indexOf(txt) !== -1; });
+  var matches = _fin.filter(function (r) { return r._norm && r._norm.indexOf(q) !== -1; });
   if (matches.length === 0) { box.style.display = 'none'; return; }
 
   var somaValor = matches.reduce(function (s, r) { return s + r.valor; }, 0);
@@ -1787,6 +1818,7 @@ function atualizarResumo(txt) {
   var elMulta   = document.getElementById('sum-multa');
   var elTotal   = document.getElementById('sum-total');
   var wrapMulta = document.getElementById('sum-multa-wrap');
+  var sumBtn    = document.getElementById('sum-btn-modal');
 
   if (elNome)  elNome.textContent  = nomes.length === 1 ? nomes[0] : nomes.length + ' clientes';
   if (elCount) elCount.textContent = matches.length + ' registro' + (matches.length !== 1 ? 's' : '');
@@ -1794,6 +1826,15 @@ function atualizarResumo(txt) {
   if (elMulta) elMulta.textContent = _brlFmt(somaMulta);
   if (elTotal) elTotal.textContent = _brlFmt(somaTotal);
   if (wrapMulta) wrapMulta.style.display = algumTemMulta ? '' : 'none';
+
+  if (sumBtn) {
+    if (nomes.length === 1) {
+      sumBtn.style.display = 'inline-block';
+      sumBtn.onclick = function () { abrirDebitosModal(nomes[0]); };
+    } else {
+      sumBtn.style.display = 'none';
+    }
+  }
 
   box.style.display = '';
 }
@@ -1811,12 +1852,16 @@ function fecharDropdown() {
 function mostrarDropdown(txt) {
   var dd = document.getElementById('search-dropdown');
   var inSearch = document.getElementById('search-nome');
-  if (!dd || !txt) { fecharDropdown(); return; }
+  if (!dd) return;
+  var q = _norm(txt);
+  if (!q) { fecharDropdown(); return; }
 
   var vistos = {};
   var sugestoes = [];
   _detalhe.forEach(function (r) {
-    if (r.nomeN.indexOf(txt) !== -1 && !vistos[r.nome]) {
+    var matchNome = r._norm && r._norm.indexOf(q) !== -1;
+    var matchDoc  = r._normDoc && r._normDoc.indexOf(q) !== -1;
+    if ((matchNome || matchDoc) && !vistos[r.nome]) {
       vistos[r.nome] = true;
       var qtd = _detalhe.filter(function (x) { return x.nome === r.nome; }).length;
       sugestoes.push({ nome: r.nome, qtd: qtd });
@@ -1828,7 +1873,10 @@ function mostrarDropdown(txt) {
   dd.innerHTML = sugestoes.map(function (s) {
     return '<div class="search-dropdown-item" data-nome="' + s.nome.replace(/"/g, '&quot;') + '">' +
       '<span class="dd-nome">' + s.nome + '</span>' +
-      '<span class="dd-qtd">' + s.qtd + ' fatura' + (s.qtd !== 1 ? 's' : '') + '</span>' +
+      '<div style="display:flex;align-items:center;gap:6px;">' +
+        '<span class="dd-qtd">' + s.qtd + ' fatura' + (s.qtd !== 1 ? 's' : '') + '</span>' +
+        '<span style="font-size:11px;font-weight:600;color:var(--brand-orange,#f97316);">Ver débitos →</span>' +
+      '</div>' +
       '</div>';
   }).join('');
 
@@ -1847,7 +1895,7 @@ function mostrarDropdown(txt) {
 }
 
 window.fecharDebitosModal = function (e) {
-  if (e && e.target !== document.getElementById('debitos-overlay')) return;
+  if (e && e.target && e.target !== document.getElementById('debitos-overlay')) return;
   var overlay = document.getElementById('debitos-overlay');
   if (overlay) overlay.classList.remove('open');
 };
@@ -1860,11 +1908,14 @@ window.abrirDebitosModal = function (nomeExato) {
   var elTotal  = document.getElementById('debitos-modal-total');
   if (!overlay || !tbody) return;
 
-  var itens = _detalhe.filter(function (r) { return r.nome === nomeExato; });
+  var q = _norm(nomeExato);
+  var itens = _detalhe.filter(function (r) {
+    return r.nome === nomeExato || (r._norm && r._norm === q);
+  });
   if (!itens.length) return;
   _debitosItens = itens;
 
-  if (elNome) elNome.textContent = nomeExato;
+  if (elNome) elNome.textContent = itens[0].nome;
 
   var soma = 0;
   var rows = itens.map(function (r) {
@@ -2119,7 +2170,6 @@ function inadSwitch(aba) {
     function checkItem(el) {
       var dias = parseInt(el.dataset.dias, 10) || 0;
       var sit  = el.dataset.situacao || '';
-      var nome = el.dataset.nome || '';
       var tot  = parseFloat(el.dataset.total) || 0;
 
       if (!matchPill(dias, activePill)) return false;
@@ -2128,7 +2178,13 @@ function inadSwitch(aba) {
         if (activeSit === 'vence-hoje' && sit !== 'vence-hoje') return false;
         if (activeSit === 'a-vencer' && sit !== 'a-vencer') return false;
       }
-      if (searchTxt && nome.indexOf(searchTxt) === -1) return false;
+      if (searchTxt) {
+        if (!el._norm) el._norm = _norm(el.dataset.nome || '');
+        if (!el._normDoc) el._normDoc = _norm(el.dataset.doc || '');
+        var mNome = el._norm.indexOf(searchTxt) !== -1;
+        var mDoc  = el.dataset.doc && el._normDoc.indexOf(searchTxt) !== -1;
+        if (!mNome && !mDoc) return false;
+      }
       if (!isNaN(filterMin) && tot < filterMin) return false;
       if (!isNaN(filterMax) && tot > filterMax) return false;
       return true;
@@ -2176,25 +2232,45 @@ function inadSwitch(aba) {
   // Busca
   var inSearch = document.getElementById('search-nome');
   window._triggerSearch = function(val) {
-    searchTxt = (val || '').trim().toLowerCase();
+    searchTxt = _norm(val);
     applyFilters();
     atualizarResumo(searchTxt);
   };
 
   if (inSearch) {
     inSearch.addEventListener('input', function () {
-      searchTxt = this.value.trim().toLowerCase();
+      searchTxt = _norm(this.value);
       applyFilters();
       atualizarResumo(searchTxt);
       mostrarDropdown(searchTxt);
     });
     inSearch.addEventListener('focus', function () {
-      if (this.value.trim()) mostrarDropdown(this.value.trim().toLowerCase());
+      var val = _norm(this.value);
+      if (val) mostrarDropdown(val);
     });
     inSearch.addEventListener('blur', function () {
       setTimeout(fecharDropdown, 250);
     });
+    inSearch.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        var firstItem = document.querySelector('#search-dropdown .search-dropdown-item');
+        if (firstItem) {
+          var nome = firstItem.dataset.nome;
+          inSearch.value = nome;
+          window._triggerSearch(nome);
+          abrirDebitosModal(nome);
+          fecharDropdown();
+        }
+      }
+    });
   }
+
+  document.addEventListener('click', function (e) {
+    var searchBox = document.querySelector('.inad-search-box');
+    if (searchBox && !searchBox.contains(e.target)) {
+      fecharDropdown();
+    }
+  });
 
   // Ordenação
   window.toggleSort = function () {
