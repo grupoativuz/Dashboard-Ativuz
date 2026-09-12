@@ -1190,20 +1190,6 @@
         <div id="search-dropdown" class="search-dropdown" style="display:none;"></div>
       </div>
     </div>
-
-    <!-- Resumo do cliente durante busca -->
-    <div id="search-summary" style="display:none; background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:10px 14px; margin-top:4px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <span style="font-size:0.72rem;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:.05em;" id="sum-nome"></span>
-        <button id="sum-btn-modal" type="button" style="display:none;background:#0284c7;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;">Ver faturas detalhadas →</button>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">
-        <div><div style="font-size:0.68rem;color:#64748b;">Registros</div><div style="font-size:0.95rem;font-weight:700;color:#0f172a;" id="sum-count"></div></div>
-        <div><div style="font-size:0.68rem;color:#64748b;">Original</div><div style="font-size:0.88rem;font-weight:600;color:#0f172a;" id="sum-valor"></div></div>
-        <div id="sum-multa-wrap"><div style="font-size:0.68rem;color:#64748b;">Multa (10%)</div><div style="font-size:0.88rem;font-weight:600;color:#dc2626;" id="sum-multa"></div></div>
-        <div style="background:#0369a1;border-radius:8px;padding:5px 12px;"><div style="font-size:0.68rem;color:#bae6fd;">Total devido</div><div style="font-size:1rem;font-weight:800;color:#fff;" id="sum-total"></div></div>
-      </div>
-    </div>
   </div>
 
   <!-- Contador de itens visíveis -->
@@ -1830,50 +1816,7 @@ function _brlFmt(v) {
   return 'R$ ' + s.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
-/* ── Resumo do Cliente ao Buscar ── */
-function atualizarResumo(txt) {
-  var box = document.getElementById('search-summary');
-  if (!box) return;
-  var q = _norm(txt);
-  if (!q) { box.style.display = 'none'; return; }
 
-  var matches = _fin.filter(function (r) { return r._norm && r._norm.indexOf(q) !== -1; });
-  if (matches.length === 0) { box.style.display = 'none'; return; }
-
-  var somaValor = matches.reduce(function (s, r) { return s + r.valor; }, 0);
-  var somaMulta = matches.reduce(function (s, r) { return s + r.multa; }, 0);
-  var somaTotal = matches.reduce(function (s, r) { return s + r.total; }, 0);
-  var algumTemMulta = matches.some(function (r) { return r.temMulta; });
-
-  var nomes = [];
-  matches.forEach(function (r) { if (nomes.indexOf(r.nome) === -1) nomes.push(r.nome); });
-
-  var elNome    = document.getElementById('sum-nome');
-  var elCount   = document.getElementById('sum-count');
-  var elValor   = document.getElementById('sum-valor');
-  var elMulta   = document.getElementById('sum-multa');
-  var elTotal   = document.getElementById('sum-total');
-  var wrapMulta = document.getElementById('sum-multa-wrap');
-  var sumBtn    = document.getElementById('sum-btn-modal');
-
-  if (elNome)  elNome.textContent  = nomes.length === 1 ? nomes[0] : nomes.length + ' clientes';
-  if (elCount) elCount.textContent = matches.length + ' registro' + (matches.length !== 1 ? 's' : '');
-  if (elValor) elValor.textContent = _brlFmt(somaValor);
-  if (elMulta) elMulta.textContent = _brlFmt(somaMulta);
-  if (elTotal) elTotal.textContent = _brlFmt(somaTotal);
-  if (wrapMulta) wrapMulta.style.display = algumTemMulta ? '' : 'none';
-
-  if (sumBtn) {
-    if (nomes.length === 1) {
-      sumBtn.style.display = 'inline-block';
-      sumBtn.onclick = function () { abrirDebitosModal(nomes[0]); };
-    } else {
-      sumBtn.style.display = 'none';
-    }
-  }
-
-  box.style.display = '';
-}
 
 /* ── Modal de Débitos e Sugestões Dropdown ── */
 var _debitosItens = [];
@@ -2270,14 +2213,12 @@ function inadSwitch(aba) {
   window._triggerSearch = function(val) {
     searchTxt = _norm(val);
     applyFilters();
-    atualizarResumo(searchTxt);
   };
 
   if (inSearch) {
     inSearch.addEventListener('input', function () {
       searchTxt = _norm(this.value);
       applyFilters();
-      atualizarResumo(searchTxt);
       mostrarDropdown(searchTxt);
     });
     inSearch.addEventListener('focus', function () {
