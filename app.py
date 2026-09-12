@@ -23,6 +23,7 @@ import collections
 
 from services.gerar_contrato import gerar_docx, gerar_termo_quitacao, gerar_notificacao_avalista, gerar_notificacao_inadimplente, nome_arquivo_saida
 from services.gerar_vistoria_entrada_saida import gerar_vistoria_entrada_saida, docx_para_pdf as _docx_para_pdf_es
+from services.fipe_service import consultar_preco_fipe, consultar_lote_fipe
 
 app = Flask(__name__)
 app.secret_key = _os.environ.get("SECRET_KEY", "ativuz-secret-dev-2026")
@@ -6331,7 +6332,7 @@ def _frota_ler_manual():
             return {}
         res = sb.table("frota_fipe_historico").select(
             "placa, mes_ref, valor, atualizado_em"
-        ).eq("fonte", "manual").execute()
+        ).in_("fonte", ["manual", "fipe_api"]).execute()
         out = {}
         for row in (res.data or []):
             placa  = row["placa"]
@@ -6920,11 +6921,53 @@ def api_frota_manual():
     return jsonify({"ok": True, "placa": placa, "valor": valor, "ref": ref})
 
 
+@app.route("/api/frota/fipe/cotacoes", methods=["GET"])
+def api_frota_fipe_cotacoes():
+    """Consulta em paralelo os valores vigentes da FIPE para todos os modelos da frota ativa."""
+    sb = _supabase()
+    if sb is None:
+        return jsonify({"ok": False, "erro": "Supabase não configurado"}), 500
+
+    try:
+        res_v = sb.table("frota_veiculos").select(
+            "cod_fipe, ano_modelo, modelo"
+        ).eq("ativo", True).execute()
+        veiculos = res_v.data or []
+
+        seen = {}
+        for v in veiculos:
+            cod = (v.get("cod_fipe") or "").strip()
+            ano = (v.get("ano_modelo") or "").strip()
+            if not cod:
+                continue
+            key = (cod, ano)
+            if key not in seen:
+                seen[key] = {
+                    "cod_fipe": cod,
+                    "ano_modelo": ano,
+                    "modelo": v.get("modelo") or "",
+                }
+
+        lista_consultar = list(seen.values())
+        resultados = consultar_lote_fipe(lista_consultar)
+        _, curr_label, _, _ = _frota_mes_atual()
+
+        return jsonify({
+            "ok": True,
+            "mes_ref": curr_label,
+            "cotacoes": resultados,
+        })
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({"ok": False, "erro": str(e)}), 500
+
+
 @app.route("/api/frota/manual/batch", methods=["POST"])
 def api_frota_manual_batch():
     """Upsert em bulk por combinação (cod_fipe + ano_modelo) em frota_fipe_historico."""
     body     = request.get_json(silent=True) or {}
     entradas = body.get("entradas") or []
+    fonte    = (body.get("fonte") or "manual").strip()
     if not entradas:
         return jsonify({"ok": False, "erro": "Nenhuma entrada"}), 400
 
@@ -6953,7 +6996,7 @@ def api_frota_manual_batch():
                     "placa":         v["placa"],
                     "mes_ref":       ref,
                     "valor":         valor,
-                    "fonte":         "manual",
+                    "fonte":         fonte,
                     "atualizado_em": agora,
                 })
 

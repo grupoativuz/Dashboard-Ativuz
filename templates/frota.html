@@ -866,9 +866,15 @@ a.fr-tab-btn { text-decoration: none; display: inline-block; line-height: normal
       <button id="fr-modal-close" class="fr-modal-close" type="button">✕</button>
     </div>
     <div class="fr-modal-body" id="fr-modal-body"></div>
-    <div class="fr-modal-footer">
-      <button id="fr-modal-cancel" class="fr-btn-secondary" type="button">Cancelar</button>
-      <button id="fr-modal-save" class="fr-btn-primary" type="button">Salvar todos</button>
+    <div class="fr-modal-footer" style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+      <button id="fr-modal-auto-fipe" class="fr-btn-secondary" type="button" style="display:inline-flex; align-items:center; gap:6px; color:#FF4713; border-color:rgba(255,71,19,0.35); background:rgba(255,71,19,0.06); font-weight:700;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Buscar via API FIPE
+      </button>
+      <div style="display:flex; gap:8px; margin-left:auto;">
+        <button id="fr-modal-cancel" class="fr-btn-secondary" type="button">Cancelar</button>
+        <button id="fr-modal-save" class="fr-btn-primary" type="button">Salvar todos</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1684,7 +1690,7 @@ function saveModal() {
   btn.textContent = 'Salvando…'; btn.disabled = true;
   fetch('/api/frota/manual/batch', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ entradas: entradas })
+    body: JSON.stringify({ entradas: entradas, fonte: 'fipe_api' })
   })
   .then(function(r){ return r.json(); })
   .then(function(d) {
@@ -1706,10 +1712,69 @@ function saveModal() {
   })
   .catch(function(){ alert('Erro de rede. Tente novamente.'); btn.textContent = 'Salvar todos'; btn.disabled = false; });
 }
+
+function autoBuscarFipe() {
+  var btn = document.getElementById('fr-modal-auto-fipe');
+  if (!btn) return;
+  var originalHtml = btn.innerHTML;
+  btn.innerHTML = 'Buscando na FIPE…';
+  btn.disabled = true;
+
+  fetch('/api/frota/fipe/cotacoes')
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      btn.innerHTML = originalHtml;
+      btn.disabled = false;
+      if (!data.ok || !data.cotacoes) {
+        alert('Não foi possível obter cotações da FIPE: ' + (data.erro || 'erro desconhecido'));
+        return;
+      }
+
+      var preenchidos = 0;
+      data.cotacoes.forEach(function(item) {
+        if (!item.ok || item.valor == null) return;
+        var inputs = document.querySelectorAll('.fr-modal-input');
+        inputs.forEach(function(inp) {
+          var codMatch = (inp.dataset.cod === item.cod_fipe);
+          var anoRaw = (inp.dataset.ano || '').trim();
+          var anoTarget = (item.ano_modelo || '').trim();
+          var anoMatch = (anoRaw === anoTarget || anoRaw.indexOf(anoTarget) !== -1);
+
+          if (codMatch && anoMatch) {
+            inp.value = brlInput(item.valor);
+            inp.style.borderColor = '#16a34a';
+            inp.style.background = 'rgba(22, 163, 74, 0.08)';
+            preenchidos++;
+          }
+        });
+      });
+
+      if (preenchidos > 0) {
+        btn.style.color = '#16a34a';
+        btn.style.borderColor = '#16a34a';
+        btn.innerHTML = '✓ ' + preenchidos + ' valores FIPE inseridos';
+        setTimeout(function() {
+          btn.innerHTML = originalHtml;
+          btn.style.color = '#FF4713';
+          btn.style.borderColor = 'rgba(255,71,19,0.35)';
+        }, 4000);
+      } else {
+        alert('Nenhuma cotação encontrada para os códigos informados.');
+      }
+    })
+    .catch(function(err) {
+      btn.innerHTML = originalHtml;
+      btn.disabled = false;
+      alert('Erro ao consultar API da FIPE. Tente novamente.');
+    });
+}
+
 document.getElementById('th-fipe-edit').addEventListener('click', openModal);
 document.getElementById('fr-modal-close').addEventListener('click', closeModal);
 document.getElementById('fr-modal-cancel').addEventListener('click', closeModal);
 document.getElementById('fr-modal-save').addEventListener('click', saveModal);
+var elAutoFipe = document.getElementById('fr-modal-auto-fipe');
+if (elAutoFipe) elAutoFipe.addEventListener('click', autoBuscarFipe);
 document.getElementById('fr-modal-overlay').addEventListener('click', function(e){ if (e.target === this) closeModal(); });
 document.addEventListener('keydown', function(e){
   if (e.key === 'Escape'){
