@@ -3024,9 +3024,9 @@ def _ler_inad_dados():
             else:            etapa, etapa_cls = "D+15",         "stage-d15"
 
             if dias == 0:    proxima = "Enviar lembrete de vencimento"
-            elif dias == 1:  proxima = "Aviso de atraso — tem até o final do dia para pagar, caso contrário amanhã entram os juros"
-            elif dias == 2:  proxima = "Juros aplicado — a partir de amanhã inicia a contagem dos juros de mora"
-            elif dias == 3:  proxima = "Juros de mora em contagem — regularize hoje para evitar suspensão do serviço"
+            elif dias == 1:  proxima = "Aviso de atraso — tem até o final do dia para pagar, caso contrário amanhã entra a multa de 10%"
+            elif dias == 2:  proxima = "Multa de 10% aplicada — regularize para evitar suspensão do serviço"
+            elif dias == 3:  proxima = "Em atraso (com multa de 10%) — regularize hoje para evitar suspensão do serviço"
             elif dias == 4:  proxima = "Aviso final — regularize até hoje ou o serviço será suspenso"
             elif dias <= 6:  proxima = "Serviço suspenso — exigir comprovante de pagamento para reativação"
             elif dias <= 9:  proxima = "Encaminhar para cobrança jurídica extrajudicial"
@@ -3038,8 +3038,8 @@ def _ler_inad_dados():
 
             tem_fatura = bool(num_doc)
             multa      = valor * 0.10 if (tem_fatura and dias >= 2) else 0.0
-            juros_mora = (valor + multa) * 0.00033 * dias if (tem_fatura and dias >= 3) else 0.0
-            juros      = multa + juros_mora
+            juros_mora = 0.0
+            juros      = multa
             total      = valor + juros
             pausar     = total * 0.5
 
@@ -3069,9 +3069,9 @@ def _ler_inad_dados():
             mostrar_pausar = is_fatura and 1 <= dias <= 2
             if mostrar_pausar:
                 if dias == 1:
-                    msg_pausar = f"{nome}, sua parcela de *{_brl(valor)}* está em aberto (vencimento: {data_fmt}). O valor atualizado é *{_brl(total)}*. 📌 Pague *{_brl(pausar)}* hoje e quite *{_brl(pausar)}* até a sexta-feira desta semana. ⚠️ Juros de 0,5% ao dia continuam correndo sobre o saldo restante. Sem pagamento até sexta, a cobrança retoma no sábado. ⚠️ Não se trata de desconto. O valor total do débito permanece integral.\n\n\n*Ativuz Veículos*"
+                    msg_pausar = f"{nome}, sua parcela de *{_brl(valor)}* está em aberto (vencimento: {data_fmt}). O valor atualizado é *{_brl(total)}*. 📌 Pague *{_brl(pausar)}* hoje e quite *{_brl(pausar)}* até a sexta-feira desta semana. Sem pagamento até sexta, a cobrança retoma no sábado. ⚠️ Não se trata de desconto. O valor total do débito permanece integral.\n\n\n*Ativuz Veículos*"
                 else:
-                    msg_pausar = f"{nome}, sua parcela de *{_brl(valor)}* está em aberto há *2 dias* (vencimento: {data_fmt}). O valor atualizado é *{_brl(total)}*. 📌 Pague *{_brl(pausar)}* hoje e quite *{_brl(pausar)}* até a sexta-feira desta semana. ⚠️ Juros de 0,5% ao dia continuam correndo sobre o saldo restante. Sem pagamento até sexta, a cobrança retoma no sábado. ⚠️ Não se trata de desconto. O valor total do débito permanece integral.\n\n\n*Ativuz Veículos*"
+                    msg_pausar = f"{nome}, sua parcela de *{_brl(valor)}* está em aberto há *2 dias* (vencimento: {data_fmt}). O valor atualizado é *{_brl(total)}*. 📌 Pague *{_brl(pausar)}* hoje e quite *{_brl(pausar)}* até a sexta-feira desta semana. Sem pagamento até sexta, a cobrança retoma no sábado. ⚠️ Não se trata de desconto. O valor total do débito permanece integral.\n\n\n*Ativuz Veículos*"
             else:
                 msg_pausar = None
 
@@ -3377,8 +3377,8 @@ def exportar_inadimplencia():
 
                 tem_fatura = bool(num_doc)
                 multa      = valor * 0.10 if (tem_fatura and dias >= 2) else 0.0
-                juros_mora = (valor + multa) * 0.00033 * dias if (tem_fatura and dias >= 3) else 0.0
-                juros      = multa + juros_mora
+                juros_mora = 0.0
+                juros      = multa
                 total      = valor + juros
 
                 _ETAPA_SHORT = {
@@ -3387,9 +3387,9 @@ def exportar_inadimplencia():
                     "D+5": "D+5", "D+7": "D+7", "D+10": "D+10", "D+15": "D+15",
                 }
                 if   dias == 0:     etapa, proxima = "Hoje",         "Enviar lembrete de vencimento"
-                elif dias == 1:     etapa, proxima = "Terça-feira",  "Aviso de atraso — tem até o final do dia para pagar, caso contrário amanhã entram os juros"
-                elif dias == 2:     etapa, proxima = "Quarta-feira", "Juros aplicado — a partir de amanhã inicia a contagem dos juros de mora"
-                elif dias == 3:     etapa, proxima = "Quinta-feira", "Juros de mora em contagem — regularize hoje para evitar suspensão do serviço"
+                elif dias == 1:     etapa, proxima = "Terça-feira",  "Aviso de atraso — tem até o final do dia para pagar, caso contrário amanhã entra a multa de 10%"
+                elif dias == 2:     etapa, proxima = "Quarta-feira", "Multa de 10% aplicada — regularize para evitar suspensão do serviço"
+                elif dias == 3:     etapa, proxima = "Quinta-feira", "Em atraso (com multa de 10%) — regularize hoje para evitar suspensão do serviço"
                 elif dias == 4:     etapa, proxima = "Sexta-feira",  "Aviso final — regularize até hoje ou o serviço será suspenso"
                 elif dias <= 6:     etapa, proxima = "D+5",  "Serviço suspenso — exigir comprovante de pagamento para reativação"
                 elif dias <= 9:     etapa, proxima = "D+7",  "Encaminhar para cobrança jurídica extrajudicial"

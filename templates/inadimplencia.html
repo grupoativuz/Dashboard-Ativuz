@@ -1226,7 +1226,7 @@
     <div class="inad-card-top">Total Atualizado</div>
     <div>
       <div class="inad-card-val" style="font-size:1.1rem;">{{ total_valor_atual }}</div>
-      <div class="inad-card-sub">com multa e juros acumulados</div>
+      <div class="inad-card-sub">com multa de 10% (a partir de quarta-feira)</div>
     </div>
   </div>
 
@@ -1341,10 +1341,6 @@
             <div style="font-size:0.68rem;color:#64748b;">Multa (10%)</div>
             <div style="font-size:0.88rem;font-weight:600;color:#dc2626;" id="sum-multa"></div>
           </div>
-          <div>
-            <div style="font-size:0.68rem;color:#64748b;">Juros acumulados</div>
-            <div style="font-size:0.88rem;font-weight:600;color:#dc2626;" id="sum-juros"></div>
-          </div>
           <div style="background:#0369a1;border-radius:8px;padding:6px 12px;">
             <div style="font-size:0.68rem;color:#bae6fd;">Total geral devido</div>
             <div style="font-size:1.05rem;font-weight:800;color:#fff;" id="sum-total"></div>
@@ -1355,7 +1351,7 @@
              style="display:inline-flex;align-items:center;background:#25D366;color:#fff;
                     font-size:0.78rem;font-weight:700;padding:7px 13px;border-radius:8px;
                     text-decoration:none;">
-            WhatsApp — Com juros
+            WhatsApp — Com multa
           </a>
           <a id="sum-wa-orig" href="#" target="_blank" rel="noopener"
              style="display:inline-flex;align-items:center;background:#1e6f3e;color:#fff;
@@ -1465,12 +1461,6 @@
           <span class="fin-val fin-red">+ {{ r.multa_s }}</span>
         </div>
         {% endif %}
-        {% if r.dias_atraso >= 3 %}
-        <div class="fin-row">
-          <span class="fin-lbl">Juros mora (0,033%/dia × {{ r.dias_atraso }}d)</span>
-          <span class="fin-val fin-red">+ {{ r.juros_mora_s }}</span>
-        </div>
-        {% endif %}
         <hr class="fin-sep">
         <div class="fin-row">
           <span class="fin-total-lbl">Total atualizado</span>
@@ -1480,7 +1470,7 @@
         <div class="fin-pausar-card">
           <div class="fin-pausar-left">
             <span class="fin-pausar-lbl">Pausar Cobrança (50%)</span>
-            <span class="fin-pausar-note">Suspende até sexta · saldo continua com juros</span>
+            <span class="fin-pausar-note">Suspende até sexta · quitação do saldo até sexta</span>
           </div>
           <span class="fin-pausar-val">{{ r.pausar_s }}</span>
         </div>
@@ -1857,12 +1847,12 @@ const _detalhe = [
         var totalFmt  = _brlFmt(somaTotal);
         var origFmt   = _brlFmt(somaValor);
         var msgJuros  = nomeCli + ', seu débito total com a Ativuz Veículos é de *' + totalFmt +
-                        '* (já com multa e juros de mora). Para regularizar, entre em contato.' +
+                        '* (já com multa de 10%). Para regularizar, entre em contato.' +
                         '\n\n\n*Ativuz Veículos*';
         var msgOrig   = nomeCli + ', temos uma condição especial para você regularizar sua situação:\n\n' +
-                        '💸 Valor com multa e juros: *' + totalFmt + '*\n' +
-                        '✅ Valor com desconto: *' + origFmt + '*\n\n' +
-                        '💰 Pague à vista e quite tudo pelo valor original, sem multa e sem juros de mora.\n\n' +
+                        '💸 Valor com multa: *' + totalFmt + '*\n' +
+                        '✅ Valor sem multa: *' + origFmt + '*\n\n' +
+                        '💰 Pague à vista e quite tudo pelo valor original, sem multa.\n\n' +
                         '💳 Ou parcele em até *10x no cartão* (com juros da operadora).\n\n' +
                         'Entre em contato e aproveite essa oportunidade! ⏳ *Válida por 48 horas.*' +
                         '\n\n\n*Ativuz Veículos*';

@@ -136,10 +136,9 @@ def calcular_snapshot(xlsx_bytes: bytes, hoje: date) -> dict:
         if dias < 0:
             continue
 
-        # multa + juros
-        multa      = valor * 0.10 if dias >= 2 else 0.0
-        juros_mora = valor * 0.005 * dias if dias >= 3 else 0.0
-        total      = valor + multa + juros_mora
+        # apenas multa de 10% a partir do D+2 (quarta-feira)
+        multa = valor * 0.10 if dias >= 2 else 0.0
+        total = valor + multa
 
         nomes_vencidos.add(nome)
         total_valor += total
