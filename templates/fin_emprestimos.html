@@ -102,7 +102,7 @@ tr:hover .fin-btn-vender { opacity: 1; }
           {% elif c.sistema == 'PRICE' %}<span class="badge-sistema price">Price</span>
           {% else %}<span class="badge-sistema na">—</span>{% endif %}
         </td>
-        <td>{% if c.taxa_am is not none %}{{ '%.2f' | format(c.taxa_am * 100) | replace('.', ',') }}%{% if c.taxa_variavel %}<span class="tag-carencia" title="Pós-fixado">+IPCA</span>{% endif %}{% else %}—{% endif %}</td>
+        <td>{% if c.taxa_am is not none %}<span title="{% if c.taxa_variavel %}Pós-fixado: taxa fixa de {{ '%.4f' | format(c.taxa_am * 100) | replace('.', ',') }}% a.m. + correção pelo IPCA{% else %}Pré-fixado: taxa fixa de {{ '%.4f' | format(c.taxa_am * 100) | replace('.', ',') }}% a.m., sem indexador{% endif %}" style="cursor:help">{{ '%.2f' | format(c.taxa_am * 100) | replace('.', ',') }}%{% if c.taxa_variavel %}<span class="tag-carencia abaixo">+IPCA</span>{% endif %}</span>{% else %}<span title="Taxa de juros não cadastrada" style="cursor:help">—</span>{% endif %}</td>
         <td>{{ c.pagas }}/{{ c.parcelas_total }}{% if c.saldo_origem == 'carencia' %}<span class="tag-carencia abaixo">em carência</span>{% endif %}</td>
         <td>{% if c.valor_financiado is not none %}R$ {{ c.valor_financiado | brl }}{% else %}—{% endif %}</td>
         <td class="strong"><span class="{{ 'saldo-estimado' if c.sem_cadastro or c.requer_revisao }}">R$ {{ c.saldo_real | brl }}</span>{% if c.sem_cadastro or c.requer_revisao %}<span class="saldo-origem o-{{ c.saldo_origem }}">{{ FIN_ORIGEM.get(c.saldo_origem, c.saldo_origem) }}</span>{% endif %}</td>
@@ -134,7 +134,7 @@ tr:hover .fin-btn-vender { opacity: 1; }
         <div class="rk-name">{{ c.contrato or c.operacao }}</div>
         <div class="rk-sub">{{ c.instituicao | upper }}{% if c.placa %} &middot; {{ c.placa }}{% endif %} &middot; saldo R$ {{ c.saldo_real | brl }}</div>
       </div>
-      <div class="rk-rate">{{ '%.2f' | format(c.taxa_am * 100) | replace('.', ',') }}% a.m.
+      <div class="rk-rate" style="cursor:help" title="{% if c.taxa_variavel %}Pós-fixado: taxa fixa + correção pelo IPCA{% else %}Pré-fixado: taxa fixa, sem indexador{% endif %}">{{ '%.2f' | format(c.taxa_am * 100) | replace('.', ',') }}% a.m.
         <small>{{ '%.2f' | format(((1 + c.taxa_am) ** 12 - 1) * 100) | replace('.', ',') }}% a.a.{% if c.taxa_variavel %} + IPCA{% endif %}</small></div>
     </div>
     {% else %}
