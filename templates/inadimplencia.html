@@ -2628,7 +2628,7 @@ function ltInitChart() {
   var canvas = document.getElementById('lt-chart');
   if (!canvas) return;
 
-  fetch('/api/inadimplencia/historico')
+  fetch('/inadimplencia/historico')
     .then(function(r) { return r.json(); })
     .then(function(rows) {
       var tbody = document.getElementById('lt-table-body');
@@ -2637,44 +2637,57 @@ function ltInitChart() {
       var labels = [];
       var dataValues = [];
 
-      (rows || []).forEach(function(r, idx) {
+      var chron = (rows || []).slice().sort(function(a, b) { return a.semana.localeCompare(b.semana); });
+      chron.forEach(function(r) {
         labels.push(r.semana_fmt || r.semana);
-        var val = parseFloat(r.total_valor) || 0;
-        dataValues.push(val);
+        dataValues.push(parseFloat(r.total_valor) || 0);
+      });
 
+      var sortedDesc = (rows || []).slice().sort(function(a, b) { return b.semana.localeCompare(a.semana); });
+      if (sortedDesc.length === 0) {
         if (tbody) {
-          var tr = document.createElement('tr');
-          var prev = idx > 0 ? parseFloat(rows[idx - 1].total_valor) || 0 : val;
-          var diff = val - prev;
-          var diffTxt = (diff >= 0 ? '+R$ ' : '-R$ ') + Math.abs(diff).toLocaleString('pt-BR', {minimumFractionDigits: 2});
-          var diffColor = diff > 0 ? '#dc2626' : (diff < 0 ? '#16a34a' : '#64748b');
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted);">Nenhum snapshot salvo ainda. Clique em "+ Adicionar dia anterior" ou "Salvar hoje".</td></tr>';
+        }
+      } else {
+        sortedDesc.forEach(function(r, idx) {
+          var val = parseFloat(r.total_valor) || 0;
+          var prevRow = sortedDesc[idx + 1];
+          var prev = prevRow ? parseFloat(prevRow.total_valor) || 0 : null;
+          var diffTxt = '—';
+          var diffColor = 'var(--text-muted)';
+          if (prev !== null) {
+            var diff = val - prev;
+            diffTxt = (diff >= 0 ? '+R$ ' : '-R$ ') + Math.abs(diff).toLocaleString('pt-BR', {minimumFractionDigits: 2});
+            diffColor = diff > 0 ? '#dc2626' : (diff < 0 ? '#16a34a' : 'var(--text-muted)');
+          }
 
+          var tr = document.createElement('tr');
           tr.innerHTML =
             '<td><strong>' + (r.semana_fmt || r.semana) + '</strong></td>' +
-            '<td><strong style="color:var(--text-main);">' + (r.total_valor_fmt || ('R$ ' + val.toFixed(2))) + '</strong></td>' +
+            '<td><strong style="color:var(--text-main);">' + (r.total_valor_fmt || ('R$ ' + val.toLocaleString('pt-BR', {minimumFractionDigits: 2}))) + '</strong></td>' +
             '<td>' + (r.total_casos || 0) + '</td>' +
             '<td style="color:' + diffColor + ';font-weight:700;">' + diffTxt + '</td>' +
             '<td style="text-align:right;">' +
               '<button class="btn-jud-sm btn-del" onclick="ltDeleteSnapshot(\'' + r.semana + '\')">Excluir</button>' +
             '</td>';
           tbody.appendChild(tr);
-        }
-      });
+        });
+      }
 
       if (_ltChartInstance) _ltChartInstance.destroy();
 
       var ctx = canvas.getContext('2d');
       var gradient = ctx.createLinearGradient(0, 0, 0, 240);
-      gradient.addColorStop(0, 'rgba(255, 71, 19, 0.18)');
+      gradient.addColorStop(0, 'rgba(255, 71, 19, 0.20)');
       gradient.addColorStop(1, 'rgba(255, 71, 19, 0.00)');
 
       _ltChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: labels.length ? labels : ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
+          labels: labels.length ? labels : ['Sem dados'],
           datasets: [{
             label: 'Total Atualizado (R$)',
-            data: dataValues.length ? dataValues : [38500, 41200, 47850, 52100, 56780, 56780, 58120],
+            data: dataValues.length ? dataValues : [0],
             borderColor: '#FF4713',
             borderWidth: 2.5,
             pointBackgroundColor: '#FF4713',
@@ -2704,6 +2717,9 @@ function ltInitChart() {
           }
         }
       });
+    })
+    .catch(function(err) {
+      console.error('Erro ao carregar histórico:', err);
     });
 }
 

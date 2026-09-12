@@ -3783,6 +3783,7 @@ def inadimplencia_snapshot():
 
 
 @app.route("/inadimplencia/historico", methods=["GET"])
+@app.route("/api/inadimplencia/historico", methods=["GET"])
 def inadimplencia_historico():
     """Retorna snapshots históricos como JSON para o gráfico."""
     sb = _supabase()
@@ -3804,6 +3805,7 @@ def inadimplencia_historico():
 
 
 @app.route("/inadimplencia/historico/manual", methods=["POST"])
+@app.route("/api/inadimplencia/historico/manual", methods=["POST"])
 def inadimplencia_historico_manual():
     """Insere ou atualiza um snapshot manual de dia anterior."""
     sb = _supabase()
@@ -3839,6 +3841,7 @@ def inadimplencia_historico_manual():
 
 
 @app.route("/inadimplencia/historico/delete", methods=["POST"])
+@app.route("/api/inadimplencia/historico/delete", methods=["POST"])
 def inadimplencia_historico_delete():
     """Remove um snapshot pelo campo semana (YYYY-MM-DD)."""
     sb = _supabase()
