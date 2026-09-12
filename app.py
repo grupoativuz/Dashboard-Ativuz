@@ -5475,10 +5475,101 @@ def _fin_saldo_real(r, hoje, devedor_nominal):
     return devedor_nominal, "nominal"
 
 
-@app.route("/financiamentos")
-def pagina_financiamentos():
-    # Toda a página — financiamentos e consórcios — usa a mesma data de
-    # competência, senão os dois subtotais se referem a instantes diferentes.
+# Empresa e instituição financeira de cada contrato de financiamento. A tabela
+# não tem essas colunas: o nome da operação já carrega a informação, e a
+# carteira é pequena o bastante para o mapa ficar aqui. Consórcio não passa por
+# aqui — as cotas são identificadas pelo apelido (Joel 02, Lucas 05...).
+#
+# "AGN" = Agência de Fomento do Rio Grande do Norte S.A. (CNPJ 03.848.103/0001-02),
+# emissora das CCBs 62329, 62970 e 64342. Não confundir com o Banco do Nordeste,
+# que responde pelas operações "BNB".
+_FIN_OPERACAO_INFO = {
+    "agn [agencia digital]": ("Agência Digital Potiguar",    "AGN · Fomento RN"),
+    "agn [ativuz]":          ("Ativuz Veículos",             "AGN · Fomento RN"),
+    "agn [ltv]":             ("LTV Serviços e Tecnologia",   "AGN · Fomento RN"),
+    "ativuz bnb":            ("Ativuz Veículos",             "BNB"),
+    "az bnb":                ("AZ Empreendimentos",          "BNB"),
+    "serido bnb":            ("Seridó",                      "BNB (CCB/FNE)"),
+}
+
+
+def _fin_empresa_instituicao(operacao):
+    """(empresa, instituição) a partir do nome da operação."""
+    chave = _nh(operacao)
+    if chave in _FIN_OPERACAO_INFO:
+        return _FIN_OPERACAO_INFO[chave]
+    if "sicredi" in chave:
+        return "Ativuz Veículos", "Sicredi"
+    if "bnb" in chave:
+        return "Ativuz Veículos", "BNB"
+    return "Ativuz Veículos", operacao
+
+
+def _fin_saldo_em(r, ref):
+    """Saldo devedor de um contrato (qualquer tipo) na data `ref`."""
+    parcela  = float(r["valor_parcela"])
+    restante = _fin_calcular_restante(r, ref)
+    nominal  = restante * parcela
+    if (r.get("tipo") or "financiamento") == "consorcio":
+        return nominal
+    saldo, _ = _fin_saldo_real(r, ref, nominal)
+    return saldo
+
+
+def _fin_timeline(rows, competencia, agora, tipo=None, max_meses=240):
+    """
+    Pontos da Linha do Tempo Vertical: saldo devedor somado mês a mês, do mês
+    de competência até o mês em que tudo zera.
+
+    `tipo` filtra ("financiamento" | "consorcio"); None soma os dois. Cada
+    contrato é projetado a partir da sua própria competência (_fin_ref_contrato),
+    então um contrato que vence dia 27 vira o mês no mesmo passo dos outros.
+    """
+    ativos = []
+    for r in rows:
+        if r.get("vendido"):
+            continue
+        t = "consorcio" if (r.get("tipo") or "financiamento") == "consorcio" else "financiamento"
+        if tipo and t != tipo:
+            continue
+        ativos.append((r, _fin_ref_contrato(r, competencia, agora)))
+
+    _MESES = ["jan", "fev", "mar", "abr", "mai", "jun",
+              "jul", "ago", "set", "out", "nov", "dez"]
+    pontos = []
+    anterior = None
+    for k in range(max_meses + 1):
+        ref_k = _fin_add_meses(competencia, k)
+        total = 0.0
+        for r, ref_c in ativos:
+            try:
+                total += _fin_saldo_em(r, _fin_add_meses(ref_c, k))
+            except Exception:
+                continue
+        total = round(total, 2)
+        if k == 0 and total <= 0:
+            break
+        pontos.append({
+            "label":   f"{_MESES[ref_k.month - 1]}/{str(ref_k.year)[2:]}",
+            "valor":   total,
+            "delta":   None if anterior is None else round(total - anterior, 2),
+            "hoje":    k == 0,
+            "quitado": total <= 0,
+        })
+        anterior = total
+        if total <= 0:
+            break
+    return pontos
+
+
+def _fin_carteira():
+    """
+    Lê e calcula toda a carteira de financiamentos e consórcios.
+
+    Toda a Carteira — Visão Geral, Empréstimos e Consórcios — usa a mesma data
+    de competência, senão subtotais de páginas diferentes se referem a
+    instantes diferentes. Devolve (rows, contratos, vendidos, cards, hoje, agora).
+    """
     agora = datetime.now(_BRT).date()
     hoje  = _fin_data_referencia(agora)
 
@@ -5502,8 +5593,25 @@ def pagina_financiamentos():
         if tipo_c == "consorcio":
             # Consórcio não tem juros a descontar: o nominal já é o valor certo.
             saldo_real, saldo_origem = devedor, "consorcio"
+            empresa, instituicao = None, None
         else:
             saldo_real, saldo_origem = _fin_saldo_real(r, ref_c, devedor)
+            empresa, instituicao = _fin_empresa_instituicao(r["operacao"])
+
+        # Data prevista de quitação: fim da amortização (se cadastrado) ou o
+        # vencimento da última parcela.
+        n_amort = int(r.get("parcelas_amortizacao") or 0)
+        ini_str = r.get("data_inicio_amortizacao")
+        quitacao = None
+        if ini_str and n_amort > 0:
+            try:
+                passo = 3 if (r.get("periodicidade") or "mensal") == "trimestral" else 1
+                quitacao = _fin_add_meses(date.fromisoformat(str(ini_str)[:10]), passo * (n_amort - 1))
+            except Exception:
+                quitacao = None
+        if quitacao is None and r.get("data_vencimento"):
+            quitacao = str(r["data_vencimento"])[:10]
+        quitacao = str(quitacao)[:10] if quitacao else None
 
         item = {
             "id":              r["id"],
@@ -5515,13 +5623,19 @@ def pagina_financiamentos():
             # continua usando `placa` inteira, então acha qualquer uma delas.
             "placas":          [p.strip() for p in (r.get("placa") or "").split("/") if p.strip()],
             "data_vencimento": str(r.get("data_vencimento") or "")[:10] or None,
+            "data_quitacao":   quitacao,
             "restante":        restante,
+            "pagas":           pagas,
             "parcelas_total":  parcelas,
             "valor_parcela":   parcela,
             "total_pago":      pagas * parcela + entrada,
             "total":           parcelas * parcela + entrada,
             "devedor":         devedor,
             "valor_financiado": float(r["valor_financiado"]) if r.get("valor_financiado") is not None else None,
+            "sistema":         (r.get("sistema_amortizacao") or "").upper() or None,
+            "taxa_am":         float(r["taxa_juros_am"]) if r.get("taxa_juros_am") is not None else None,
+            "empresa":         empresa,
+            "instituicao":     instituicao,
             "saldo_real":      saldo_real,
             "saldo_origem":    saldo_origem,
             "taxa_variavel":   bool(r.get("taxa_variavel")),
@@ -5534,6 +5648,8 @@ def pagina_financiamentos():
             "tipo":            tipo_c,
             "valor_resgate":   float(r["valor_resgate"]) if r.get("valor_resgate") is not None else None,
             "data_resgate":    str(r.get("data_resgate") or "")[:10] or None,
+            # Reservado: contemplação da cota ainda não é carregada de lugar nenhum.
+            "contemplacao":    r.get("status_contemplacao") or None,
         }
 
         if r.get("vendido"):
@@ -5567,8 +5683,8 @@ def pagina_financiamentos():
 
     # A dívida presente é o que a empresa deve HOJE: valor presente dos
     # financiamentos mais o nominal dos consórcios (que não têm juros a
-    # descontar). `soma_devedor`, o nominal puro, continua existindo — mas
-    # aparece só no rodapé da tabela, não como número de capa.
+    # descontar). `soma_devedor`, o nominal puro, continua existindo como
+    # referência secundária.
     divida_presente = sum(c["saldo_real"] for c in ativos)
 
     cards = {
@@ -5590,18 +5706,113 @@ def pagina_financiamentos():
         "saldo_nominal_cons": saldo_nominal_cons,
         "n_fin":              len(fin_ativos),
         "n_cons":             len(cons_ativos),
+        "mensal_fin":         sum(c["valor_parcela"] for c in fin_ativos),
+        "mensal_cons":        sum(c["valor_parcela"] for c in cons_ativos),
         "n_sem_cadastro":     sum(1 for c in fin_ativos if c["sem_cadastro"]),
         "n_requer_revisao":   sum(1 for c in fin_ativos if c["requer_revisao"]),
         "data_referencia":    hoje,
         "proxima_virada":     _fin_add_meses(hoje, 1),
     }
 
+    return rows, contratos, vendidos, cards, hoje, agora
+
+
+@app.route("/financiamentos")
+def pagina_financiamentos():
+    """Carteira › Visão Geral."""
+    rows, contratos, vendidos, cards, hoje, agora = _fin_carteira()
+    resumo = _ad_resumo()
     return render_template("financiamentos.html",
         active="financiamentos",
-        contratos=contratos,
-        vendidos=vendidos,
         cards=cards,
+        timeline_pontos=_fin_timeline(rows, hoje, agora),
+        kpis=resumo["kpis"],
+        serie=resumo["serie"],
+        patrimonio=resumo["patrimonio"],
+    )
+
+
+@app.route("/financiamentos/emprestimos")
+def pagina_fin_emprestimos():
+    """Carteira › Empréstimos e Financiamentos."""
+    rows, contratos, vendidos, cards, hoje, agora = _fin_carteira()
+    fins = [c for c in contratos if c["tipo"] != "consorcio"]
+
+    # Agrupado por empresa, com subtotal de dívida presente. Só contratos
+    # ativos entram no subtotal; quitados ficam na lista, riscados.
+    grupos = {}
+    for c in fins:
+        g = grupos.setdefault(c["empresa"], {"empresa": c["empresa"], "contratos": [], "saldo": 0.0, "n_ativos": 0})
+        g["contratos"].append(c)
+        if not c["quitado"]:
+            g["saldo"]    += c["saldo_real"]
+            g["n_ativos"] += 1
+    grupos = sorted(grupos.values(), key=lambda g: -g["saldo"])
+    for g in grupos:
+        g["contratos"].sort(key=lambda c: (c["quitado"], c["operacao"], c["contrato"]))
+
+    ranking = sorted([c for c in fins if not c["quitado"] and c["taxa_am"] is not None],
+                     key=lambda c: -c["taxa_am"])
+
+    # Próximo vencimento: a parcela mais próxima entre os contratos ativos,
+    # projetando o dia do vencimento de cada um para o mês corrente/seguinte.
+    proximo = None
+    for c in fins:
+        if c["quitado"] or not c["data_vencimento"]:
+            continue
+        try:
+            venc = date.fromisoformat(c["data_vencimento"])
+        except Exception:
+            continue
+        import calendar
+        cand = date(agora.year, agora.month, min(venc.day, calendar.monthrange(agora.year, agora.month)[1]))
+        if cand < agora:
+            cand = _fin_add_meses(cand, 1)
+        cand = min(cand, venc)
+        if proximo is None or cand < proximo["data"]:
+            proximo = {"data": cand, "dias": (cand - agora).days, "contrato": c}
+
+    return render_template("fin_emprestimos.html",
+        active="fin_emprestimos",
+        cards=cards,
+        grupos=grupos,
+        n_empresas=len(grupos),
+        mais_caro=ranking[0] if ranking else None,
+        proximo=proximo,
+        ranking=ranking,
+        vendidos=[c for c in vendidos if c["tipo"] != "consorcio"],
+        timeline_pontos=_fin_timeline(rows, hoje, agora, tipo="financiamento"),
         FIN_ORIGEM=FIN_ORIGEM,
+    )
+
+
+@app.route("/financiamentos/consorcios")
+def pagina_fin_consorcios():
+    """Carteira › Consórcios."""
+    rows, contratos, vendidos, cards, hoje, agora = _fin_carteira()
+    cotas = [c for c in contratos if c["tipo"] == "consorcio"]
+    cotas.sort(key=lambda c: (c["quitado"], -c["pct_quitado"]))
+    ativas   = [c for c in cotas if not c["quitado"]]
+    quitadas = [c for c in cotas if     c["quitado"]]
+
+    # Extremos pelo nº de parcelas restantes; empates são listados juntos
+    # ("Ativuz 07 e 06").
+    def _extremo(fn):
+        if not ativas:
+            return None
+        n = fn(c["restante"] for c in ativas)
+        nomes = [c["operacao"] for c in ativas if c["restante"] == n]
+        return {"restante": n, "nomes": " e ".join(nomes) if len(nomes) <= 2 else f"{nomes[0]} +{len(nomes) - 1}"}
+
+    return render_template("fin_consorcios.html",
+        active="fin_consorcios",
+        cards=cards,
+        cotas=ativas,
+        quitadas=quitadas,
+        mais_proxima=_extremo(min),
+        mais_distante=_extremo(max),
+        vendidos=[c for c in vendidos if c["tipo"] == "consorcio"],
+        timeline_pontos=_fin_timeline(rows, hoje, agora, tipo="consorcio"),
     )
 
 
@@ -5695,7 +5906,7 @@ def _fin_total_pago():
 # ── Selic: fonte única do cálculo ─────────────────────────────────────────────
 # Antes isto vivia só no JavaScript de capital_investido.html. Passou para cá
 # porque duas páginas precisam do mesmo número — o card de Patrimônio Líquido em
-# /benchmarking compara o resultado da operação contra ele. Uma fórmula só,
+# /financiamentos compara o resultado da operação contra ele. Uma fórmula só,
 # um resultado só.
 
 # Taxa anual vigente A PARTIR de cada reunião do Copom; a última vale até hoje.
@@ -5755,7 +5966,7 @@ def _capital_selic(ate=None):
     Líquido = descontados IR regressivo (sobre o rendimento) e custódia da B3.
 
     Consumido pela página de Capital Investido e pelo card de Patrimônio
-    Líquido em Análise de Dados.
+    Líquido na Carteira › Visão Geral.
     """
     ate = ate or datetime.now(_BRT).date()
     try:
@@ -7864,21 +8075,6 @@ def _ad_inadimplencia():
             "serie": serie}
 
 
-def _ad_receita_por_cliente(lancamentos, limite=10):
-    """Top clientes por receita de locação no período dos lançamentos recebidos."""
-    por = collections.defaultdict(float)
-    for l in lancamentos:
-        if _dre_categoria(l["codigo"]) not in ("RECEITAS DE LOCAÇÃO", "RECEITAS ADICIONAIS"):
-            continue
-        nome = l.get("cliente") or "—"
-        por[nome] += _ad_valor(l)
-    top = sorted(por.items(), key=lambda kv: -kv[1])[:limite]
-    total = sum(por.values()) or 1.0
-    return [{"nome": n, "valor": v, "valor_s": _brl(v),
-             "pct": round(100 * v / total, 1)} for n, v in top]
-
-
-
 # ── Parâmetros editáveis pela interface ───────────────────────────────────────
 # Tabela chave/valor (db/migrate_parametros.sql). Números que mudam com o
 # mercado ou com o dia — quem atualiza é o usuário na tela, não o código.
@@ -7944,49 +8140,29 @@ def api_parametros_salvar():
     return jsonify({"ok": True, "valor": valor})
 
 
-# ── Análise de Dados ──────────────────────────────────────────────────────────
-# Página em construção: estrutura e seções definidas, cálculos a implementar
-# depois (receita/margens via _dre_calcular, alavancagem via
-# _fin_calcular_restante reconstruído mês a mês, frota via frota_fipe_historico,
-# inadimplência via inad_snapshots, receita por cliente via contratos_frota).
+# ── Resumo de resultado e patrimônio (Carteira › Visão Geral) ────────────────
 
-@app.route("/benchmarking")
-def pagina_benchmarking():
+def _ad_resumo():
+    """
+    Receita/EBITDA dos últimos 12 meses, série mensal para o gráfico de
+    Receita & Margens e o card de Patrimônio Líquido. Antes vivia na página
+    "Análise de Dados"; hoje alimenta a Visão Geral da Carteira.
+    """
     # Regime de caixa: é como a operação é acompanhada no dia a dia.
     # Só Ativuz + AZ: João Paulo Consórcios e Luz Divina são outras empresas e
     # não entram nos indicadores da casa.
     lancs = _dre_ler_lancamentos("pagamento", grupo=_DRE_GRUPO_PADRAO)
     meses = _ad_dre_mensal(lancs)
-    disponiveis = sorted(meses)
 
-    # Filtro: "12m" (padrão) ou um mês específico no formato AAAA-MM.
-    periodo_req = (request.args.get("periodo") or "12m").strip()
-    ref_sel = None
-    if periodo_req != "12m":
-        try:
-            a, mm = periodo_req.split("-")
-            cand = (int(a), int(mm))
-            if cand in meses:
-                ref_sel = cand
-        except (ValueError, TypeError):
-            ref_sel = None
-
-    if ref_sel:
-        chaves = [ref_sel]
-        periodo_label = f"{ref_sel[1]:02d}/{ref_sel[0]}"
-        periodo_val   = f"{ref_sel[0]}-{ref_sel[1]:02d}"
-    else:
-        chaves = _ad_ultimos_meses(meses, 12)
-        periodo_val = "12m"
-        periodo_label = (f"{chaves[0][1]:02d}/{chaves[0][0]} a "
-                         f"{chaves[-1][1]:02d}/{chaves[-1][0]}") if chaves else "—"
+    chaves = _ad_ultimos_meses(meses, 12)
+    periodo_label = (f"{chaves[0][1]:02d}/{chaves[0][0]} a "
+                     f"{chaves[-1][1]:02d}/{chaves[-1][0]}") if chaves else "—"
 
     acum   = _ad_acumulado(meses, chaves) if chaves else {}
     rl     = acum.get("receita_liquida", 0.0)
     ebitda = acum.get("ebitda", 0.0)
 
-    # A série do gráfico mostra sempre os últimos 13 meses; o mês filtrado
-    # fica destacado para dar contexto em vez de virar uma barra solitária.
+    # A série do gráfico mostra os últimos 13 meses.
     serie = []
     for ref in _ad_ultimos_meses(meses, 13):
         v   = meses[ref]
@@ -7996,51 +8172,36 @@ def pagina_benchmarking():
             "receita_liquida": round(rlm, 2),
             "ebitda":          round(v["ebitda"], 2),
             "margem":          round(100 * v["ebitda"] / rlm, 1) if rlm else 0.0,
-            "sel":             (ref == ref_sel),
         })
 
     divida = _ad_divida()
     frota  = _ad_frota_valor()
     inad   = _ad_inadimplencia()
 
-    lancs_periodo = [l for l in lancs if _ad_mes_ref(l["dt"]) in chaves]
-    clientes = _ad_receita_por_cliente(lancs_periodo)
-
-    # Dívida/EBITDA anualiza quando o filtro é de um mês só, para o índice
-    # continuar comparável com o padrão de mercado (dívida sobre EBITDA anual).
-    ebitda_anual = ebitda if len(chaves) >= 12 else ebitda * 12 / max(1, len(chaves))
-    div_ebitda   = (divida["total"] / ebitda_anual) if ebitda_anual > 0 else None
-    div_ebitda_curso = (divida["em_curso"] / ebitda_anual) if ebitda_anual > 0 else None
-
-    receita_periodo = sum(l["valor"] for l in lancs_periodo
-                          if _dre_categoria(l["codigo"]) == "RECEITAS DE LOCAÇÃO")
+    receita_periodo = sum(l["valor"] for l in lancs
+                          if _ad_mes_ref(l["dt"]) in chaves
+                          and _dre_categoria(l["codigo"]) == "RECEITAS DE LOCAÇÃO")
     taxa_inad = (100 * inad["total"] / receita_periodo) if receita_periodo > 0 else None
+
+    # Dívida/EBITDA sobre o EBITDA dos 12 meses; "em curso" exclui os contratos
+    # ainda em carência, que pesam na dívida sem contrapartida no resultado.
+    div_ebitda       = (divida["total"]    / ebitda) if ebitda > 0 else None
+    div_ebitda_curso = (divida["em_curso"] / ebitda) if ebitda > 0 else None
 
     kpis = {
         "receita_liquida": _brl(rl),
         "ebitda":          _brl(ebitda),
         "margem_ebitda":   f"{100 * ebitda / rl:.1f}%".replace(".", ",") if rl else "—",
-        "lucro_liquido":   _brl(acum.get("lucro_liquido", 0.0)),
-        "investidores":    _brl(acum.get("investidores", 0.0)),
-        "saldo_devedor":   _brl(divida["total"]),
-        "div_curto":       _brl(divida["curto"]),
-        "div_longo":       _brl(divida["longo"]),
-        "div_ebitda":      f"{div_ebitda:.2f}x".replace(".", ",") if div_ebitda else "—",
+        "div_ebitda":       f"{div_ebitda:.2f}x".replace(".", ",") if div_ebitda else "—",
         "div_ebitda_curso": f"{div_ebitda_curso:.2f}x".replace(".", ",") if div_ebitda_curso else "—",
-        "div_nao_iniciada": _brl(divida["nao_iniciada"]),
-        "div_em_curso":     _brl(divida["em_curso"]),
         "n_nao_iniciados":  divida["contratos_nao_iniciados"],
         "frota_fipe":      _brl(frota["fipe"]),
-        "frota_aquisicao": _brl(frota["aquisicao"]),
         "frota_veiculos":  frota["veiculos"],
         "inad_total":      _brl(inad["total"]),
         "inad_casos":      inad["casos"],
         "taxa_inad":       f"{taxa_inad:.1f}%".replace(".", ",") if taxa_inad is not None else "—",
         "periodo":         periodo_label,
     }
-
-    opcoes = [{"valor": f"{a}-{mm:02d}", "label": f"{mm:02d}/{a}"}
-              for a, mm in reversed(disponiveis)]
 
     # Patrimônio líquido: frota (FIPE) - dívida presente + saldo em conta.
     # Números crus, não formatados: o JS recalcula o resultado a cada digitação.
@@ -8061,11 +8222,7 @@ def pagina_benchmarking():
         "selic_liquida":  selic["liquido"],
     }
 
-    return render_template("benchmarking.html", active="benchmarking",
-                           kpis=kpis, serie=serie, clientes=clientes,
-                           serie_frota=frota["serie"], serie_inad=inad["serie"],
-                           opcoes=opcoes, periodo_sel=periodo_val,
-                           patrimonio=patrimonio)
+    return {"kpis": kpis, "serie": serie, "patrimonio": patrimonio}
 
 
 @app.route("/configuracoes")

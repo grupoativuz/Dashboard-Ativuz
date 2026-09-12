@@ -1,591 +1,344 @@
 {% extends "base.html" %}
-{% block title %}Financiamentos e Consórcios — Ativuz{% endblock %}
+{% from "_fin_shared.html" import fin_styles %}
+{% from "_timeline.html" import timeline, timeline_assets %}
+{% block title %}Carteira Financeira — Visão Geral — Ativuz{% endblock %}
 
 {% block head %}
+{{ fin_styles() }}
+{{ timeline_assets() }}
 <style>
-/* ── Layout ── */
-.fin-wrap { width: 100%; }
+/* Tira de contexto */
+.vg-strip { display: flex; flex-wrap: wrap; gap: 6px 28px; padding: 0 4px 14px; font-size: 12px; color: var(--ink-3); }
+.vg-strip > span { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.vg-strip b { font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums; }
 
-/* ── Page header ── */
-.fin-header { margin-bottom: 24px; text-align: left; }
-.fin-header h1 { font-size: 20px; font-weight: 700; color: var(--ink); margin: 0 0 4px; }
-.fin-header p  { font-size: 13px; color: var(--ink-3); margin: 0; }
+/* Patrimônio Líquido */
+.pl-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 22px; border-bottom: 1px solid var(--line); }
+.pl-row-label { font-size: 15px; font-weight: 600; color: var(--ink); }
+.pl-row-sub { font-size: 11px; color: var(--ink-3); margin-top: 3px; font-variant-numeric: tabular-nums; }
+.pl-row-value { font-size: 17px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pl-op { color: var(--ink-3); font-weight: 500; }
+.pl-tag { display: inline-block; font-size: 10px; font-weight: 600; color: var(--ink-3); background: var(--line-2); border-radius: 6px; padding: 3px 8px; margin-left: 8px; vertical-align: middle; }
+.pl-contas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 0 22px 18px; }
+@media (max-width: 760px) { .pl-contas { grid-template-columns: 1fr; } }
+.pl-conta { background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 12px 14px; }
+.pl-conta-nome { font-size: 11px; font-weight: 600; color: var(--ink-3); margin-bottom: 8px; }
+.pl-input {
+  width: 100%; padding: 8px 12px; text-align: left; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; font-family: inherit;
+}
+.pl-input:focus { outline: none; border-color: var(--brand-orange); box-shadow: 0 0 0 3px rgba(255,71,19,.12); }
+.pl-input.saving { opacity: .5; }
+.pl-footer {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 22px;
+  background: var(--brand-ink, #15192A); color: #fff; border-radius: 0 0 var(--d-radius, 12px) var(--d-radius, 12px);
+}
+.pl-footer-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.7); }
+.pl-footer-value { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.pl-footer-value.pl-negativo { color: #FF8A6B; }
 
-/* ── Card rows ── */
-.fin-cards { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
-.fin-card-row { display: grid; gap: 12px; }
-.fin-card-row.r4 { grid-template-columns: repeat(4, 1fr); }
-@media (max-width: 960px) {
-  .fin-card-row.r4 { grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 540px) {
-  .fin-card-row.r4 { grid-template-columns: 1fr; }
-}
-.fin-card {
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: 12px; padding: 16px 20px;
-}
-.fin-card-label {
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .06em; color: var(--ink-3); margin-bottom: 8px;
-  text-align: center;
-}
-.fin-card-value {
-  font-size: 20px; font-weight: 700; color: var(--ink);
-  line-height: 1; font-variant-numeric: tabular-nums;
-  text-align: center;
-}
-.fin-card-value.sm { font-size: 16px; }
-.fin-card-value.accent { color: var(--brand-orange, #FF4713); }
+/* Patrimônio da operação x Selic */
+.cmp-label { font-size: 13px; font-weight: 600; color: var(--ink-2); margin-bottom: 14px; }
+.cmp-value { font-size: 28px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -.01em; }
+.cmp-sub { font-size: 11px; color: var(--ink-3); margin-top: 8px; }
+.cmp-selic { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+.cmp-selic .sec .cmp-value { font-size: 17px; margin-top: 6px; }
+.cmp-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.pl-vs-pct { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 8px; padding: 6px 12px; }
+.pl-vs-pct.pl-acima  { background: var(--success-soft); color: var(--success); }
+.pl-vs-pct.pl-abaixo { background: var(--danger-soft);  color: var(--danger); }
 
-.fin-card-row.r2 { grid-template-columns: repeat(2, 1fr); }
-@media (max-width: 540px) { .fin-card-row.r2 { grid-template-columns: 1fr; } }
-.fin-card-sub {
-  font-size: 10px; color: var(--ink-3); text-align: center;
-  margin-top: 6px; line-height: 1.3;
-}
+.fin-chart-wrap { position: relative; height: 320px; }
 
-/* Aviso de cadastro incompleto / revisão manual */
-.fin-aviso {
-  background: #fffbeb; border: 1px solid #fde68a; color: #92400e;
-  border-radius: 8px; padding: 10px 14px; font-size: 12px;
-  line-height: 1.5; margin: -16px 0 24px;
+/* Cards de link */
+.lk { display: block; text-decoration: none; color: inherit; padding: 20px 22px; position: relative; transition: border-color .15s, box-shadow .15s; }
+.lk:hover { border-color: var(--brand-orange); box-shadow: var(--shadow-md); }
+.lk-icon { width: 24px; height: 24px; color: var(--brand-orange); margin-bottom: 14px; }
+.lk-title { font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+.lk-value { font-size: 26px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -.01em; }
+.lk-sub { font-size: 12px; color: var(--ink-3); margin-top: 10px; }
+.lk-detail { font-size: 11px; color: var(--ink-3); margin-top: 6px; display: flex; gap: 14px; flex-wrap: wrap; }
+.lk-detail b { color: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }
+.lk-btn {
+  position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
+  display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 9px 16px; box-shadow: var(--shadow-sm);
 }
-
-/* Coluna Valor Presente: o número e a etiqueta ficam em duas faixas de largura
-   fixa, senão o conjunto é centralizado junto e cada etiqueta de largura
-   diferente desloca o número da sua linha. Assim os números alinham pela
-   direita e as etiquetas pela esquerda, em todas as linhas. */
-.vp-cell { display: inline-flex; align-items: center; gap: 6px; }
-.vp-num  { min-width: 72px; text-align: right;  font-variant-numeric: tabular-nums; }
-.vp-tag  { min-width: 76px; text-align: left; }
-.vp-tag .saldo-origem { margin-left: 0; }
-
-/* Saldo devedor real e a procedência do número */
-.saldo-real { font-variant-numeric: tabular-nums; }
-.saldo-real.saldo-estimado { color: var(--ink-3); }
-.saldo-na { color: var(--ink-3); }
-.saldo-origem {
-  display: inline-block; font-size: 8px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .04em;
-  border-radius: 3px; padding: 1px 4px; margin-left: 5px;
-  vertical-align: middle; white-space: nowrap;
-}
-.saldo-origem.o-carencia       { background: #fef3c7; color: #92400e; }
-.saldo-origem.o-sac            { background: #dcfce7; color: #166534; }
-.saldo-origem.o-price          { background: #dcfce7; color: #166534; }
-.saldo-origem.o-tabela         { background: #dbeafe; color: #1e40af; }
-.saldo-origem.o-nominal        { background: #f1f5f9; color: #64748b; }
-.saldo-origem.o-revisao_manual { background: #fee2e2; color: #991b1b; }
-.saldo-origem.o-ipca           { background: #ede9fe; color: #5b21b6; }
-/* Marca compacta de "há mais uma característica" (hoje: pós-fixado + IPCA).
-   Mantém a origem do saldo como informação principal e evita duas etiquetas
-   competindo na mesma célula. O detalhe fica no title. */
-.saldo-origem.o-mais           { background: #ede9fe; color: #5b21b6; cursor: help; }
-
-/* ── Search ── */
-.fin-search {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 20px;
-}
-.fin-search label {
-  font-size: 11px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .06em; color: var(--ink-3); white-space: nowrap;
-}
-.fin-search input {
-  padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px;
-  background: var(--surface); font-size: 13px; color: var(--ink);
-  width: 200px; text-transform: uppercase;
-}
-.fin-search input:focus { outline: 2px solid var(--brand-orange, #FF4713); outline-offset: 1px; }
-#fin-not-found {
-  font-size: 13px; color: var(--danger, #e53e3e); font-weight: 600;
-  display: none; margin-left: 8px;
-}
-
-/* ── Table ── */
-.fin-table-wrap {
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: 12px; overflow-x: auto;
-}
-.fin-table {
-  width: 100%; border-collapse: collapse;
-  font-size: 11.5px;
-}
-.fin-table th {
-  background: var(--bg); padding: 5px 7px; text-align: center;
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .05em; color: var(--ink-3);
-  border-bottom: 1px solid var(--line); white-space: nowrap;
-}
-.fin-table td {
-  padding: 5px 7px; text-align: center;
-  border-bottom: 1px solid var(--line);
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-  color: var(--ink-2);
-}
-.fin-table tr:last-child td { border-bottom: none; }
-.fin-table tr:hover td { background: #f9f9fb; }
-
-/* Quitado row */
-.fin-table tr.row-quitado td { color: var(--ink-3); }
-.badge-quitado {
-  display: inline-block; font-size: 9px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .05em;
-  background: #22a06b; color: #fff;
-  border-radius: 4px; padding: 2px 6px; vertical-align: middle; margin-left: 6px;
-}
-.badge-tipo {
-  /* Oculto visualmente por pedido — a classificação continua existindo
-     nos dados (usada pra decidir quem tem coluna de Resgate), só não
-     aparece mais na tela. */
-  display: none;
-  font-size: 9px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .05em;
-  border-radius: 4px; padding: 2px 6px; vertical-align: middle; margin-right: 6px;
-}
-.badge-tipo.consorcio { background: #eef2ff; color: #4338ca; }
-.badge-tipo.financiamento { background: #f1f5f9; color: #475569; }
-
-.fin-resgate-info { font-size: 10px; color: var(--ink-3); line-height: 1.3; white-space: nowrap; }
-.fin-contrato-link {
-  background: none; border: none; padding: 0; cursor: pointer;
-  color: #4338ca; text-decoration: underline; font: inherit;
-  font-variant-numeric: tabular-nums;
-}
-.fin-contrato-link:hover { color: #322aa0; }
-
-/* Modal de resgate */
-.fin-modal-overlay {
-  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
-  z-index: 1000; align-items: center; justify-content: center;
-}
-.fin-modal-overlay.open { display: flex; }
-.fin-modal {
-  background: var(--surface); border-radius: 12px; padding: 20px;
-  width: 100%; max-width: 320px; box-shadow: 0 12px 32px rgba(0,0,0,.25);
-}
-.fin-modal h3 { margin: 0 0 4px; font-size: 15px; color: var(--ink); }
-.fin-modal p { margin: 0 0 14px; font-size: 12px; color: var(--ink-3); }
-.fin-modal label { display: block; font-size: 11px; font-weight: 700; color: var(--ink-3); margin: 10px 0 4px; }
-.fin-modal input {
-  width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
-  font-size: 13px; background: var(--bg); color: var(--ink);
-}
-.fin-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-.fin-modal-actions button {
-  font-size: 12px; font-weight: 700; border-radius: 6px; padding: 7px 14px; cursor: pointer;
-}
-.fin-modal-cancelar { border: 1px solid var(--line); background: var(--surface); color: var(--ink-3); }
-.fin-modal-salvar { border: none; background: #4338ca; color: #fff; }
-
-/* ── Abas ── */
-.fin-tabs {
-  display: flex; gap: 4px; margin-bottom: 24px;
-  border-bottom: 2px solid var(--line); padding-bottom: 0;
-}
-.fin-tab-btn {
-  padding: 8px 20px; font-size: 13px; font-weight: 600;
-  border: none; background: none; cursor: pointer;
-  border-bottom: 3px solid transparent; color: var(--ink-3); margin-bottom: -2px;
-}
-.fin-tab-btn.active { border-bottom-color: var(--brand-orange, #FF4713); color: var(--brand-orange, #FF4713); }
-
-.fin-btn-vender, .fin-btn-restaurar {
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .04em; border: 1px solid var(--line); background: var(--surface);
-  color: var(--ink-3); border-radius: 6px; padding: 3px 8px; cursor: pointer;
-}
-.fin-btn-vender:hover { color: var(--danger, #e53e3e); border-color: var(--danger, #e53e3e); }
-.fin-btn-restaurar:hover { color: var(--brand-orange, #FF4713); border-color: var(--brand-orange, #FF4713); }
-
-/* Progress bar */
-.prog-wrap {
-  display: flex; align-items: center; gap: 6px; justify-content: center;
-}
-.prog-track {
-  width: 44px; height: 5px; background: var(--line);
-  border-radius: 3px; overflow: hidden; flex-shrink: 0;
-}
-.prog-fill { height: 100%; border-radius: 3px; }
-.prog-fill.green  { background: #22a06b; }
-.prog-fill.yellow { background: #e6a817; }
-.prog-fill.red    { background: var(--danger, #e53e3e); }
-.prog-pct { font-size: 11px; font-weight: 600; min-width: 30px; text-align: right; }
-.fin-tfoot td {
-  padding: 7px 7px; border-top: 2px solid var(--line);
-  background: var(--bg); font-variant-numeric: tabular-nums;
-  white-space: nowrap; text-align: center;
-}
+.lk:hover .lk-btn { border-color: var(--brand-orange); color: var(--brand-orange); }
+@media (max-width: 640px) { .lk-btn { position: static; transform: none; margin-top: 14px; } }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="fin-wrap">
 
-{# ── Page header ── #}
-<div class="fin-header">
-  <h1>CONTROLE DE CONSÓRCIOS &amp; FINANCIAMENTOS</h1>
-  <p>
-    Página automatizada de acompanhamento financeiro &middot;
-    posição em <strong>{{ cards.data_referencia.strftime('%d/%m/%Y') }}</strong>,
-    próxima virada em {{ cards.proxima_virada.strftime('%d/%m/%Y') }}
-  </p>
+<div class="vg-header">
+  <h1>Visão Geral da Carteira</h1>
+  <p>Posição consolidada de financiamentos, consórcios e patrimônio do grupo</p>
+  <div class="meta">posição em {{ cards.data_referencia.strftime('%d/%m/%Y') }} &middot; próxima virada em {{ cards.proxima_virada.strftime('%d/%m/%Y') }} &middot; resultado 12M: {{ kpis.periodo }}</div>
 </div>
 
-{# ── Summary cards ── #}
-<div class="fin-cards">
-
-  {# Row 1 #}
-  <div class="fin-card-row r4">
-    <div class="fin-card">
-      <div class="fin-card-label">Dívida Presente</div>
-      <div class="fin-card-value">R$ {{ cards.divida_presente | brl }}</div>
-      <div class="fin-card-sub">valor presente dos financiamentos + consórcios</div>
-    </div>
-    <div class="fin-card">
-      <div class="fin-card-label">Total Pago</div>
-      <div class="fin-card-value">R$ {{ cards.total_pago | brl }}</div>
-    </div>
-    <div class="fin-card">
-      <div class="fin-card-label">Curto Prazo</div>
-      <div class="fin-card-value">R$ {{ cards.curto_prazo | brl }}</div>
-    </div>
-    <div class="fin-card">
-      <div class="fin-card-label">Longo Prazo</div>
-      <div class="fin-card-value">R$ {{ cards.longo_prazo | brl }}</div>
-    </div>
+{# ── KPIs ── #}
+<div class="vg-grid c4">
+  <div class="vg-card kpi">
+    <div class="kpi-label">Dívida Presente</div>
+    <svg class="kpi-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M14.5 9.5a2.5 2.5 0 0 0-5 0c0 1.5 1.2 2 2.5 2.5s2.5 1 2.5 2.5a2.5 2.5 0 0 1-5 0"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
+    <div class="kpi-value">R$ {{ cards.divida_presente | brl }}</div>
+    <div class="kpi-sub">valor presente dos financiamentos + consórcios</div>
   </div>
-
-  {# Row 2 #}
-  <div class="fin-card-row r4">
-    <div class="fin-card">
-      <div class="fin-card-label">Valor Mensal</div>
-      <div class="fin-card-value">R$ {{ cards.valor_mensal | brl }}</div>
-    </div>
-    <div class="fin-card">
-      <div class="fin-card-label">Mais Perto do Vencimento</div>
-      <div class="fin-card-value sm accent">{{ cards.mais_perto }}</div>
-    </div>
-    <div class="fin-card">
-      <div class="fin-card-label">Curto Prazo %</div>
-      <div class="fin-card-value">{{ cards.pct_cp | pct_fmt }}</div>
-    </div>
-    <div class="fin-card">
-      <div class="fin-card-label">Longo Prazo %</div>
-      <div class="fin-card-value">{{ cards.pct_lp | pct_fmt }}</div>
-    </div>
+  <div class="vg-card kpi">
+    <div class="kpi-label">Total Pago</div>
+    <svg class="kpi-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><line x1="6" y1="12" x2="6.01" y2="12"/><line x1="18" y1="12" x2="18.01" y2="12"/></svg>
+    <div class="kpi-value">R$ {{ cards.total_pago | brl }}</div>
   </div>
-
-  {# Row 3 — subtotais separados: naturezas de cálculo diferentes #}
-  <div class="fin-card-row r2">
-    <div class="fin-card">
-      <div class="fin-card-label">Valor Presente &middot; Financiamentos ({{ cards.n_fin }})</div>
-      <div class="fin-card-value">R$ {{ cards.saldo_real_fin | brl }}</div>
-      <div class="fin-card-sub">valor de quitação &middot; saldo devedor nominal R$ {{ cards.saldo_nominal_fin | brl }}</div>
-    </div>
-    <div class="fin-card">
-      <div class="fin-card-label">Saldo Nominal &middot; Consórcios ({{ cards.n_cons }})</div>
-      <div class="fin-card-value">R$ {{ cards.saldo_nominal_cons | brl }}</div>
-      <div class="fin-card-sub">consórcio não tem juros a descontar</div>
-    </div>
+  <div class="vg-card kpi">
+    <div class="kpi-label">Valor Mensal</div>
+    <svg class="kpi-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+    <div class="kpi-value">R$ {{ cards.valor_mensal | brl }}</div>
   </div>
-
+  <div class="vg-card kpi">
+    <div class="kpi-label">Dívida / EBITDA</div>
+    <svg class="kpi-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>
+    <div class="kpi-value">{{ kpis.div_ebitda }}</div>
+    {% if kpis.n_nao_iniciados %}<div class="kpi-sub">{{ kpis.div_ebitda_curso }} em curso</div>{% endif %}
+  </div>
 </div>
 
 {% if cards.n_sem_cadastro or cards.n_requer_revisao %}
-<div class="fin-aviso">
-  {% if cards.n_sem_cadastro %}
-    <strong>{{ cards.n_sem_cadastro }}</strong> financiamento(s) sem os termos do contrato
-    cadastrados — entram pelo valor nominal das parcelas restantes.
-  {% endif %}
-  {% if cards.n_requer_revisao %}
-    <strong>{{ cards.n_requer_revisao }}</strong> com parcela vencida em aberto — saldo
-    requer revisão manual (encargos de mora não são estimados).
-  {% endif %}
+<div class="fin-aviso" style="margin:0 0 16px">
+  {% if cards.n_sem_cadastro %}<strong>{{ cards.n_sem_cadastro }}</strong> financiamento(s) sem os termos do contrato cadastrados — entram pelo valor nominal das parcelas restantes.{% endif %}
+  {% if cards.n_requer_revisao %}<strong>{{ cards.n_requer_revisao }}</strong> com parcela vencida em aberto — saldo requer revisão manual.{% endif %}
 </div>
 {% endif %}
 
-{# ── Abas ── #}
-<div class="fin-tabs">
-  <button id="fin-tab-btn-ativa" class="fin-tab-btn active" onclick="finSwitch('ativa')">Carteira Ativa</button>
-  <button id="fin-tab-btn-vendidos" class="fin-tab-btn" onclick="finSwitch('vendidos')">Vendidos ({{ vendidos | length }})</button>
+<div class="vg-strip">
+  <span>Receita Líquida (12M) <b>{{ kpis.receita_liquida }}</b></span>
+  <span>EBITDA (12M) <b>{{ kpis.ebitda }}</b> margem {{ kpis.margem_ebitda }}</span>
+  <span>Frota (FIPE) <b>{{ kpis.frota_fipe }}</b> {{ kpis.frota_veiculos }} veículos &middot; <a href="{{ url_for('pagina_frota') }}">ver Frota</a></span>
+  <span>Inadimplência <b>{{ kpis.taxa_inad }}</b> {{ kpis.inad_total }} &middot; {{ kpis.inad_casos }} casos &middot; <a href="{{ url_for('pagina_inadimplencia') }}">ver Inadimplência</a></span>
 </div>
 
-<!-- ══════════════ ABA: CARTEIRA ATIVA ══════════════ -->
-<div id="fin-tab-ativa">
-
-{# ── Search ── #}
-<div class="fin-search">
-  <label for="fin-search-input">Pesquise por placa:</label>
-  <input type="text" id="fin-search-input" placeholder="Ex: QGX-7353" maxlength="10">
-  <span id="fin-not-found">NÃO ENCONTRADA</span>
-</div>
-
-{# ── Table ── #}
-<div class="fin-table-wrap">
-  <table class="fin-table" id="fin-table">
-    <thead>
-      <tr>
-        <th>ID Operação</th>
-        <th>Contrato</th>
-        <th>Placa</th>
-        <th class="col-vencimento">Vencimento</th>
-        <th>Restante</th>
-        <th>Parcelas</th>
-        <th>R$ Parcela</th>
-        <th>Total Pago</th>
-        <th>Total</th>
-        <th>Devedor</th>
-        <th>Valor Presente</th>
-        <th>C. Prazo</th>
-        <th>L. Prazo</th>
-        <th>% Quitado</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for c in contratos %}
-      {% set pct_int = (c.pct_quitado * 100) | round(0) | int %}
-      {% set cor = 'green' if c.pct_quitado > 0.8 else ('yellow' if c.pct_quitado > 0.5 else 'red') %}
-      <tr class="{% if c.quitado %}row-quitado{% endif %}"
-          data-placa="{{ c.placa | upper }}">
-        <td>
-          <span class="badge-tipo {{ c.tipo }}">{{ 'Consórcio' if c.tipo == 'consorcio' else 'Financiamento' }}</span>
-          {% if c.quitado %}<span class="badge-quitado">Quitado</span>{% else %}{{ c.operacao }}{% endif %}
-        </td>
-        <td>
-          {% if c.tipo == 'consorcio' %}
-            <button class="fin-contrato-link"
-                    onclick="finAbrirResgate('{{ c.id }}', {{ c.valor_resgate if c.valor_resgate is not none else 'null' }}, '{{ c.data_resgate or '' }}')"
-                    title="Registrar resgate deste consórcio">{{ c.contrato }}</button>
-            {% if c.valor_resgate is not none %}
-              <div class="fin-resgate-info">
-                Resgate: {{ c.valor_resgate | brl }}
-                {% if c.data_resgate %}({{ c.data_resgate[8:10] }}/{{ c.data_resgate[5:7] }}/{{ c.data_resgate[:4] }}){% endif %}
-              </div>
-            {% endif %}
-          {% else %}{{ c.contrato }}{% endif %}
-        </td>
-        <td>
-          {% if c.placas | length > 1 %}
-            {{ c.placas[0] }}<span class="saldo-origem o-mais"
-              title="Também: {{ c.placas[1:] | join(', ') }}">+{{ c.placas | length - 1 }}</span>
-          {% else %}{{ c.placa }}{% endif %}
-        </td>
-        <td class="col-vencimento">
-          {% if c.data_vencimento %}
-            {{ c.data_vencimento[8:10] }}/{{ c.data_vencimento[5:7] }}/{{ c.data_vencimento[:4] }}
-          {% else %}—{% endif %}
-        </td>
-        <td>{{ c.restante }}</td>
-        <td>{{ c.parcelas_total }}</td>
-        <td>{{ c.valor_parcela | brl }}</td>
-        <td>{{ c.total_pago | brl }}</td>
-        <td>{{ c.total | brl }}</td>
-        <td>{{ c.devedor | brl }}</td>
-        <td>
-          <span class="vp-cell">
-          {% if c.tipo == 'consorcio' %}
-            <span class="vp-num saldo-na" title="Consórcio: o saldo é o nominal das parcelas restantes">—</span>
-            <span class="vp-tag"></span>
-          {% else %}
-            <span class="vp-num saldo-real {{ 'saldo-estimado' if c.sem_cadastro or c.requer_revisao }}">{{ c.saldo_real | brl }}</span>
-            <span class="vp-tag">
-              <span class="saldo-origem o-{{ c.saldo_origem }}">{{ FIN_ORIGEM.get(c.saldo_origem, c.saldo_origem) }}</span>
-              {%- if c.taxa_variavel %}<span class="saldo-origem o-mais" title="Também: pós-fixado (taxa + IPCA)">+1</span>{% endif %}
-            </span>
-          {% endif %}
-          </span>
-        </td>
-        <td>{{ c.c_prazo | brl }}</td>
-        <td>{{ c.l_prazo | brl }}</td>
-        <td>
-          <div class="prog-wrap">
-            <div class="prog-track">
-              <div class="prog-fill {{ cor }}" style="width:{{ pct_int }}%"></div>
-            </div>
-            <span class="prog-pct">{{ pct_int }}%</span>
-          </div>
-        </td>
-        <td><button class="fin-btn-vender" onclick="finMarcarVendido('{{ c.id }}', true)">Vendido</button></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-    <tfoot>
-      <tr class="fin-tfoot">
-        <td colspan="2" style="text-align:left;font-weight:700;color:var(--ink)">Total</td>
-        <td class="col-vencimento"></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='valor_parcela') | brl }}</td>
-        <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='total_pago') | brl }}</td>
-        <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='total') | brl }}</td>
-        <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='devedor') | brl }}</td>
-        <td style="font-weight:700;color:var(--ink)">
-          <span class="vp-cell"><span class="vp-num">{{ contratos | sum(attribute='saldo_real') | brl }}</span><span class="vp-tag"></span></span>
-        </td>
-        <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='c_prazo') | brl }}</td>
-        <td style="font-weight:700;color:var(--ink)">{{ contratos | sum(attribute='l_prazo') | brl }}</td>
-        <td></td>
-        <td></td>
-      </tr>
-    </tfoot>
-  </table>
-</div>
-
-</div>{# /fin-tab-ativa #}
-
-<!-- ══════════════ ABA: VENDIDOS ══════════════ -->
-<div id="fin-tab-vendidos" style="display:none;">
-  <div class="fin-table-wrap">
-    <table class="fin-table">
-      <thead>
-        <tr>
-          <th>ID Operação</th>
-          <th>Contrato</th>
-          <th>Placa</th>
-          <th>Parcelas</th>
-          <th>R$ Parcela</th>
-          <th>Total Pago</th>
-          <th>Total</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="fin-vendidos-tbody">
-        {% for c in vendidos %}
-        <tr data-id="{{ c.id }}">
-          <td>
-            <span class="badge-tipo {{ c.tipo }}">{{ 'Consórcio' if c.tipo == 'consorcio' else 'Financiamento' }}</span>
-            {{ c.operacao }}
-          </td>
-          <td>
-            {% if c.tipo == 'consorcio' %}
-              <button class="fin-contrato-link"
-                      onclick="finAbrirResgate('{{ c.id }}', {{ c.valor_resgate if c.valor_resgate is not none else 'null' }}, '{{ c.data_resgate or '' }}')"
-                      title="Registrar resgate deste consórcio">{{ c.contrato }}</button>
-              {% if c.valor_resgate is not none %}
-                <div class="fin-resgate-info">
-                  Resgate: {{ c.valor_resgate | brl }}
-                  {% if c.data_resgate %}({{ c.data_resgate[8:10] }}/{{ c.data_resgate[5:7] }}/{{ c.data_resgate[:4] }}){% endif %}
-                </div>
-              {% endif %}
-            {% else %}{{ c.contrato }}{% endif %}
-          </td>
-          <td>
-            {% if c.placas | length > 1 %}
-              {{ c.placas[0] }}<span class="saldo-origem o-mais"
-                title="Também: {{ c.placas[1:] | join(', ') }}">+{{ c.placas | length - 1 }}</span>
-            {% else %}{{ c.placa }}{% endif %}
-          </td>
-          <td>{{ c.parcelas_total }}</td>
-          <td>{{ c.valor_parcela | brl }}</td>
-          <td>{{ c.total_pago | brl }}</td>
-          <td>{{ c.total | brl }}</td>
-          <td><button class="fin-btn-restaurar" onclick="finMarcarVendido('{{ c.id }}', false)">Restaurar</button></td>
-        </tr>
-        {% else %}
-        <tr><td colspan="8" style="color:var(--ink-3);">Nenhum carro vendido cadastrado.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+{# ── Patrimônio Líquido ── #}
+<div class="vg-card" id="pl-card" style="margin-bottom:var(--d-gap,16px)">
+  <div class="vg-card-head">
+    <div>
+      <div class="vg-card-title">Patrimônio Líquido</div>
+      <div class="vg-card-sub">Frota a valor de mercado, menos a dívida trazida a valor presente, mais o caixa</div>
+    </div>
+  </div>
+  <div class="pl-row">
+    <div><div class="pl-row-label">Valor da Frota (FIPE)</div><div class="pl-row-sub">{{ patrimonio.frota_veiculos }} veículos</div></div>
+    <div class="pl-row-value" id="pl-frota"></div>
+  </div>
+  <div class="pl-row">
+    <div><div class="pl-row-label"><span class="pl-op">(&minus;)</span> Dívida Presente</div>
+      <div class="pl-row-sub">financiamento <span id="pl-div-financ"></span> &middot; consórcio <span id="pl-div-consorcio"></span></div></div>
+    <div class="pl-row-value" id="pl-divida"></div>
+  </div>
+  <div class="pl-row" style="border-bottom:none">
+    <div class="pl-row-label"><span class="pl-op">(+)</span> Saldo em Conta <span class="pl-tag">editável por empresa</span></div>
+    <div class="pl-row-value" id="pl-saldo-total"></div>
+  </div>
+  <div class="pl-contas">
+    {% for c in patrimonio.contas %}
+    <div class="pl-conta">
+      <div class="pl-conta-nome">{{ c.nome }}</div>
+      <input type="text" inputmode="decimal" class="pl-input pl-saldo" id="pl-{{ c.chave }}"
+             data-chave="{{ c.chave }}" data-valor="{{ c.valor }}" placeholder="R$ 0,00" aria-label="Saldo em conta · {{ c.nome }}">
+    </div>
+    {% endfor %}
+  </div>
+  <div class="pl-footer">
+    <span class="pl-footer-label">Resultado</span>
+    <span class="pl-footer-value" id="pl-resultado"></span>
   </div>
 </div>
 
-<script>
-(function () {
-  var input  = document.getElementById('fin-search-input');
-  var notFound = document.getElementById('fin-not-found');
-  var rows   = document.querySelectorAll('#fin-table tbody tr');
-
-  input.addEventListener('input', function () {
-    var q = input.value.trim().toUpperCase();
-    notFound.style.display = 'none';
-    var found = 0;
-    rows.forEach(function (tr) {
-      if (!q) { tr.style.display = ''; found++; return; }
-      var placa = (tr.dataset.placa || '').toUpperCase();
-      if (placa.includes(q)) { tr.style.display = ''; found++; }
-      else tr.style.display = 'none';
-    });
-    if (q && found === 0) notFound.style.display = 'inline';
-  });
-
-  input.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { input.value = ''; input.dispatchEvent(new Event('input')); }
-  });
-})();
-
-function finSwitch(aba) {
-  ['ativa', 'vendidos'].forEach(function (a) {
-    document.getElementById('fin-tab-' + a).style.display = (a === aba ? '' : 'none');
-    document.getElementById('fin-tab-btn-' + a).classList.toggle('active', a === aba);
-  });
-}
-
-function finMarcarVendido(id, vendido) {
-  if (!confirm(vendido ? 'Marcar este carro como vendido e remover da carteira ativa?' : 'Restaurar este carro para a carteira ativa?')) return;
-  fetch('/api/financiamentos/' + id + '/vendido', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ vendido: vendido }),
-  })
-    .then(function (r) { return r.json(); })
-    .then(function (json) {
-      if (json.ok) location.reload();
-      else alert('Erro: ' + (json.erro || 'falha ao atualizar.'));
-    })
-    .catch(function () { alert('Erro de conexão.'); });
-}
-
-var finResgateIdAtual = null;
-
-function finAbrirResgate(id, valorAtual, dataAtual) {
-  finResgateIdAtual = id;
-  document.getElementById('fin-resgate-valor').value = (valorAtual === null || valorAtual === undefined) ? '' : valorAtual;
-  document.getElementById('fin-resgate-data').value = dataAtual || '';
-  document.getElementById('fin-resgate-overlay').classList.add('open');
-}
-
-function finFecharResgate() {
-  finResgateIdAtual = null;
-  document.getElementById('fin-resgate-overlay').classList.remove('open');
-}
-
-function finSalvarResgate() {
-  if (!finResgateIdAtual) return;
-  var valor = document.getElementById('fin-resgate-valor').value;
-  var data  = document.getElementById('fin-resgate-data').value;
-  fetch('/api/financiamentos/' + finResgateIdAtual + '/resgate', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ valor_resgate: valor, data_resgate: data }),
-  })
-    .then(function (r) { return r.json(); })
-    .then(function (json) {
-      if (json.ok) location.reload();
-      else alert('Erro: ' + (json.erro || 'falha ao salvar.'));
-    })
-    .catch(function () { alert('Erro de conexão.'); });
-}
-</script>
-
-{# ── Modal: registrar resgate de consórcio ── #}
-<div class="fin-modal-overlay" id="fin-resgate-overlay">
-  <div class="fin-modal">
-    <h3>Registrar resgate</h3>
-    <p>Valor que ficou pendente pra sacar ao final deste consórcio.</p>
-    <label for="fin-resgate-valor">Valor (R$)</label>
-    <input type="number" id="fin-resgate-valor" step="0.01" min="0" placeholder="0,00">
-    <label for="fin-resgate-data">Data de recebimento do resgate</label>
-    <input type="date" id="fin-resgate-data">
-    <div class="fin-modal-actions">
-      <button class="fin-modal-cancelar" onclick="finFecharResgate()">Cancelar</button>
-      <button class="fin-modal-salvar" onclick="finSalvarResgate()">Salvar</button>
+{# ── Patrimônio da operação x Selic ── #}
+<div class="vg-grid c2">
+  <div class="vg-card vg-card-body">
+    <div class="cmp-label">Patrimônio da Operação</div>
+    <div class="cmp-value" id="pl-op"></div>
+    <div class="cmp-sub">o que o negócio vale hoje</div>
+  </div>
+  <div class="vg-card vg-card-body">
+    <div class="cmp-label">Se estivesse na Selic</div>
+    <div class="cmp-selic">
+      <div><div class="cmp-value" id="pl-selic-bruta"></div><div class="cmp-sub">Selic bruta &middot; referência de mercado</div></div>
+      <div class="sec"><div class="cmp-value" id="pl-selic-liq"></div><div class="cmp-sub">Selic líquida &middot; de IR e custódia</div></div>
+    </div>
+    <div class="cmp-pills">
+      <span class="pl-vs-pct" id="pl-vs-bruta"></span>
+      <span class="pl-vs-pct" id="pl-vs-liq"></span>
     </div>
   </div>
 </div>
 
+{# ── Receita & Margens + Projeção ── #}
+<div class="vg-grid c2w">
+  <div class="vg-card">
+    <div class="vg-card-head">
+      <div class="vg-card-title">Receita &amp; Margens</div>
+      <div class="vg-card-sub">receita líquida e margem EBITDA, mês a mês</div>
+    </div>
+    <div class="vg-card-body"><div class="fin-chart-wrap"><canvas id="chart-receita"></canvas></div></div>
+  </div>
+  <div class="vg-card">
+    <div class="vg-card-head">
+      <div class="vg-card-title">Projeção de Dívida — Grupo Consolidado</div>
+    </div>
+    <div class="vg-card-body">{{ timeline(timeline_pontos, 'tl-geral') }}</div>
+  </div>
+</div>
+
+{# ── Subpáginas ── #}
+<div class="vg-grid c2">
+  <a class="vg-card lk" href="{{ url_for('pagina_fin_emprestimos') }}">
+    <svg class="lk-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/><line x1="9" y1="10" x2="9.01" y2="10"/><line x1="15" y1="10" x2="15.01" y2="10"/></svg>
+    <div class="lk-title">Financiamentos</div>
+    <div class="lk-value">R$ {{ cards.saldo_real_fin | brl }}</div>
+    <div class="lk-sub">{{ cards.n_fin }} contratos ativos &middot; nominal R$ {{ cards.saldo_nominal_fin | brl }} &middot; parcelas/mês R$ {{ cards.mensal_fin | brl }}</div>
+    <div class="lk-detail">
+      <span>curto prazo <b>R$ {{ cards.curto_prazo | brl }}</b> ({{ cards.pct_cp | pct_fmt }})</span>
+      <span>longo prazo <b>R$ {{ cards.longo_prazo | brl }}</b> ({{ cards.pct_lp | pct_fmt }})</span>
+    </div>
+    <span class="lk-btn">Ver detalhes <span aria-hidden="true">→</span></span>
+  </a>
+  <a class="vg-card lk" href="{{ url_for('pagina_fin_consorcios') }}">
+    <svg class="lk-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="15" x2="12" y2="15"/></svg>
+    <div class="lk-title">Consórcios</div>
+    <div class="lk-value">R$ {{ cards.saldo_nominal_cons | brl }}</div>
+    <div class="lk-sub">{{ cards.n_cons }} cotas ativas &middot; saldo nominal &middot; parcelas/mês R$ {{ cards.mensal_cons | brl }}</div>
+    <span class="lk-btn">Ver detalhes <span aria-hidden="true">→</span></span>
+  </a>
+</div>
+
 </div>{# .fin-wrap #}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script>
+const AD_SERIE = {{ serie|tojson }};
+const PL = {{ patrimonio|tojson }};
+
+/* ── Patrimônio Líquido ───────────────────────────────────────────────────── */
+(function () {
+  const elsSaldo = Array.prototype.slice.call(document.querySelectorAll('.pl-saldo'));
+  const elResult = document.getElementById('pl-resultado');
+  const elSaldoTotal = document.getElementById('pl-saldo-total');
+  if (!elsSaldo.length) return;
+
+  const brl = v => (v < 0 ? '-' : '') + 'R$ ' + Math.abs(v).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  /* Lê o que foi digitado aceitando formato pt-BR: "R$ 57.245,00", "57245,5",
+     "57.245" ou "57245.50". Ponto sozinho com 2 casas conta como decimal. */
+  function parseBR(txt) {
+    let t = String(txt).replace(/[^\d,.-]/g, '').trim();
+    if (!t) return 0;
+    if (t.indexOf(',') >= 0) {
+      t = t.replace(/\./g, '').replace(',', '.');
+    } else {
+      const partes = t.split('.');
+      if (partes.length > 2 || (partes.length === 2 && partes[1].length === 3)) {
+        t = partes.join('');
+      }
+    }
+    const v = parseFloat(t);
+    return isNaN(v) ? 0 : v;
+  }
+  const num = el => parseBR(el.value);
+  function formatar(el) { el.value = brl(parseBR(el.value)); }
+  function crular(el) {
+    const v = parseBR(el.value);
+    el.value = v ? v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+  }
+
+  const divida = PL.div_financ + PL.div_consorcio;
+  document.getElementById('pl-frota').textContent        = brl(PL.frota_fipe);
+  document.getElementById('pl-divida').textContent       = brl(divida);
+  document.getElementById('pl-div-financ').textContent    = brl(PL.div_financ);
+  document.getElementById('pl-div-consorcio').textContent = brl(PL.div_consorcio);
+
+  const elOp     = document.getElementById('pl-op');
+  const elVsLiq  = document.getElementById('pl-vs-liq');
+  const elVsBrut = document.getElementById('pl-vs-bruta');
+  document.getElementById('pl-selic-liq').textContent   = brl(PL.selic_liquida);
+  document.getElementById('pl-selic-bruta').textContent = brl(PL.selic_bruta);
+
+  function comparar(el, patrimonio, referencia, nome) {
+    if (!referencia) { el.textContent = '—'; return; }
+    const pct = (patrimonio / referencia - 1) * 100;
+    const acima = pct >= 0;
+    el.textContent = (acima ? '+' : '') + pct.toLocaleString('pt-BR', {
+      minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '% ' + (acima ? 'acima da ' : 'abaixo da ') + nome;
+    el.classList.toggle('pl-acima',  acima);
+    el.classList.toggle('pl-abaixo', !acima);
+  }
+
+  function recalcular() {
+    const saldo = elsSaldo.reduce(function (acc, el) { return acc + num(el); }, 0);
+    elSaldoTotal.textContent = brl(saldo);
+    const r = PL.frota_fipe - divida + saldo;
+    elResult.textContent = brl(r);
+    elResult.classList.toggle('pl-negativo', r < 0);
+    elOp.textContent = brl(r);
+    comparar(elVsLiq,  r, PL.selic_liquida, 'Selic líquida');
+    comparar(elVsBrut, r, PL.selic_bruta,   'Selic bruta');
+  }
+
+  function salvar(input) {
+    const valor = parseBR(input.value);
+    if (String(valor) === input.dataset.salvo) return;
+    input.classList.add('saving');
+    fetch('/api/parametros', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chave: input.dataset.chave, valor: valor })
+    })
+      .then(r => r.json())
+      .then(d => {
+        input.classList.remove('saving');
+        if (d.error) { alert('Não foi possível salvar: ' + d.error); return; }
+        input.dataset.salvo = String(d.valor);
+        input.value = brl(d.valor);
+        recalcular();
+      })
+      .catch(() => { input.classList.remove('saving'); alert('Não foi possível salvar: falha de conexão.'); });
+  }
+
+  elsSaldo.forEach(el => {
+    el.value = brl(parseFloat(el.dataset.valor) || 0);
+    el.dataset.salvo = String(parseFloat(el.dataset.valor) || 0);
+    el.addEventListener('focus', () => { crular(el); el.select(); });
+    el.addEventListener('input', recalcular);
+    el.addEventListener('blur',  () => { formatar(el); salvar(el); });
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') el.blur(); });
+  });
+  recalcular();
+})();
+
+/* ── Receita & Margens ────────────────────────────────────────────────────── */
+new Chart(document.getElementById('chart-receita'), {
+  data: {
+    labels: AD_SERIE.map(m => m.label),
+    datasets: [
+      { type:'bar', label:'Receita líquida', data: AD_SERIE.map(m => m.receita_liquida),
+        backgroundColor:'rgba(46,107,230,.75)', borderRadius:4, yAxisID:'y' },
+      { type:'line', label:'Margem EBITDA (%)', data: AD_SERIE.map(m => m.margem),
+        borderColor:'#FF4713', backgroundColor:'#FF4713', pointBackgroundColor:'#fff', pointBorderColor:'#FF4713', pointRadius:3, tension:.3, yAxisID:'y1' }
+    ]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    interaction:{ mode:'index', intersect:false },
+    plugins:{ legend:{ position:'bottom' },
+      tooltip:{ callbacks:{ label: c => c.dataset.yAxisID === 'y1'
+        ? c.dataset.label + ': ' + c.parsed.y.toFixed(1).replace('.', ',') + '%'
+        : c.dataset.label + ': R$ ' + c.parsed.y.toLocaleString('pt-BR', {minimumFractionDigits:2}) } } },
+    scales:{
+      y:{ position:'left', ticks:{ callback: v => 'R$ ' + (v/1000).toFixed(0) + 'k' } },
+      y1:{ position:'right', grid:{ drawOnChartArea:false }, ticks:{ callback: v => v + '%' } }
+    }
+  }
+});
+</script>
 {% endblock %}

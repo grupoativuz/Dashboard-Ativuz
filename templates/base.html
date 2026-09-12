@@ -81,7 +81,7 @@
       </div>
 
       <!-- ── Insights ── -->
-      {% set grp_insights_open = active in ['dre','financiamentos','capital_investido','frota','contratos','inadimplencia','benchmarking'] %}
+      {% set grp_insights_open = active in ['dre','financiamentos','fin_emprestimos','fin_consorcios','capital_investido','frota','contratos','inadimplencia'] %}
       <div class="sb-group" id="grp-insights" data-open="true">
         <button class="sb-group-head" onclick="toggleGroup('grp-insights')"
                 aria-expanded="true" aria-controls="grp-insights-body">
@@ -118,19 +118,62 @@
               <span class="sb-item-label">DRE</span>
             </a>
             {% endif %}
-            <a href="{{ url_for('pagina_financiamentos') }}" class="sb-item"
-               data-active="{{ 'true' if active == 'financiamentos' else 'false' }}"
-               aria-current="{{ 'page' if active == 'financiamentos' else 'false' }}">
-              <span class="sb-item-icon" aria-hidden="true">
-                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <rect x="2" y="7" width="20" height="14" rx="2"/>
-                  <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
-                  <line x1="12" y1="12" x2="12" y2="16"/>
-                  <line x1="10" y1="14" x2="14" y2="14"/>
-                </svg>
-              </span>
-              <span class="sb-item-label">Carteira Financeira</span>
-            </a>
+            {% set grp_carteira = active in ['financiamentos', 'fin_emprestimos', 'fin_consorcios'] %}
+            <div class="sb-subgroup" id="grp-carteira" data-open="{{ 'true' if grp_carteira else 'false' }}">
+              <button class="sb-item sb-subgroup-head" onclick="toggleGroup('grp-carteira')"
+                      aria-expanded="{{ 'true' if grp_carteira else 'false' }}" aria-controls="grp-carteira-body"
+                      data-active="false">
+                <span class="sb-item-icon" aria-hidden="true">
+                  <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <rect x="2" y="7" width="20" height="14" rx="2"/>
+                    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+                    <line x1="12" y1="12" x2="12" y2="16"/>
+                    <line x1="10" y1="14" x2="14" y2="14"/>
+                  </svg>
+                </span>
+                <span class="sb-item-label">Carteira Financeira</span>
+                <span class="chev" aria-hidden="true">
+                  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </span>
+              </button>
+              <div class="sb-group-body" id="grp-carteira-body">
+                <div>
+                  <a href="{{ url_for('pagina_financiamentos') }}" class="sb-item sb-subitem"
+                     data-active="{{ 'true' if active == 'financiamentos' else 'false' }}"
+                     aria-current="{{ 'page' if active == 'financiamentos' else 'false' }}">
+                    <span class="sb-item-icon" aria-hidden="true">
+                      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </span>
+                    <span class="sb-item-label">Visão Geral</span>
+                  </a>
+                  <a href="{{ url_for('pagina_fin_emprestimos') }}" class="sb-item sb-subitem"
+                     data-active="{{ 'true' if active == 'fin_emprestimos' else 'false' }}"
+                     aria-current="{{ 'page' if active == 'fin_emprestimos' else 'false' }}">
+                    <span class="sb-item-icon" aria-hidden="true">
+                      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/>
+                      </svg>
+                    </span>
+                    <span class="sb-item-label">Financiamentos</span>
+                  </a>
+                  <a href="{{ url_for('pagina_fin_consorcios') }}" class="sb-item sb-subitem"
+                     data-active="{{ 'true' if active == 'fin_consorcios' else 'false' }}"
+                     aria-current="{{ 'page' if active == 'fin_consorcios' else 'false' }}">
+                    <span class="sb-item-icon" aria-hidden="true">
+                      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <circle cx="9" cy="7" r="3"/><circle cx="17" cy="7" r="3"/>
+                        <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M17 14a4 4 0 0 1 4 4v3"/>
+                      </svg>
+                    </span>
+                    <span class="sb-item-label">Consórcios</span>
+                  </a>
+                </div>
+              </div>
+            </div>
             <a href="{{ url_for('pagina_capital_investido') }}" class="sb-item"
                data-active="{{ 'true' if active == 'capital_investido' else 'false' }}"
                aria-current="{{ 'page' if active == 'capital_investido' else 'false' }}">
@@ -167,18 +210,6 @@
                 </svg>
               </span>
               <span class="sb-item-label">Contratos</span>
-            </a>
-            <a href="{{ url_for('pagina_benchmarking') }}" class="sb-item"
-               data-active="{{ 'true' if active == 'benchmarking' else 'false' }}"
-               aria-current="{{ 'page' if active == 'benchmarking' else 'false' }}">
-              <span class="sb-item-icon" aria-hidden="true">
-                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <line x1="18" y1="20" x2="18" y2="10"/>
-                  <line x1="12" y1="20" x2="12" y2="4"/>
-                  <line x1="6" y1="20" x2="6" y2="14"/>
-                </svg>
-              </span>
-              <span class="sb-item-label">Análise de Dados</span>
             </a>
           </div>
         </div>
@@ -381,11 +412,12 @@
           {% elif active == 'inadimplencia' %}Inadimplência
           {% elif active == 'checklist' %}Checklist
           {% elif active == 'dre' %}DRE
-          {% elif active == 'financiamentos' %}Carteira Financeira
+          {% elif active == 'financiamentos' %}Carteira Financeira › Visão Geral
+          {% elif active == 'fin_emprestimos' %}Carteira Financeira › Financiamentos
+          {% elif active == 'fin_consorcios' %}Carteira Financeira › Consórcios
           {% elif active == 'capital_investido' %}Capital Investido
           {% elif active == 'frota' %}Frota
           {% elif active == 'contratos' %}Contratos
-          {% elif active == 'benchmarking' %}Análise de Dados
           {% elif active == 'configuracoes' %}Configurações
           {% else %}ATIVUZ
           {% endif %}
@@ -442,7 +474,7 @@
     if (!grp) return;
     var isOpen = grp.dataset.open === 'true';
     grp.dataset.open = isOpen ? 'false' : 'true';
-    var btn = grp.querySelector('.sb-group-head');
+    var btn = grp.querySelector('.sb-group-head, .sb-subgroup-head');
     if (btn) btn.setAttribute('aria-expanded', String(!isOpen));
   };
 
@@ -518,7 +550,7 @@
 
   /* Close mobile menu when a nav link is clicked */
   if (sidebar) {
-    sidebar.querySelectorAll('.sb-item').forEach(function (link) {
+    sidebar.querySelectorAll('.sb-item:not(.sb-subgroup-head)').forEach(function (link) {
       link.addEventListener('click', function () {
         if (window.innerWidth <= 900) window.closeMobileMenu();
       });

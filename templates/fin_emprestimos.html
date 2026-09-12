@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% from "_fin_shared.html" import fin_styles, fin_scripts, placa_cell, data_br %}
+{% from "_timeline.html" import timeline, timeline_assets %}
+{% block title %}Financiamentos — Ativuz{% endblock %}
+
+{% block head %}
+{{ fin_styles() }}
+{{ timeline_assets() }}
+<style>
+.fin-btn-vender { opacity: 0; transition: opacity .12s; }
+tr:hover .fin-btn-vender { opacity: 1; }
+.vendidos-head { cursor: pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fin-wrap">
+
+<div class="vg-header">
+  <h1>Financiamentos</h1>
+  <div class="meta">posição em {{ cards.data_referencia.strftime('%d/%m/%Y') }} &middot; próxima virada em {{ cards.proxima_virada.strftime('%d/%m/%Y') }}</div>
+</div>
+
+{# ── KPIs ── #}
+<div class="vg-grid c4">
+  <div class="vg-card kpi">
+    <div class="kpi-label">Total de contratos</div>
+    <svg class="kpi-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    <div class="kpi-value">{{ cards.n_fin }}</div>
+    <div class="kpi-sub">{{ n_empresas }} empresas</div>
+  </div>
+  <div class="vg-card kpi">
+    <div class="kpi-label">Dívida Presente total</div>
+    <svg class="kpi-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M3 10h18"/><path d="M5 6l7-3 7 3"/><path d="M4 10v11"/><path d="M20 10v11"/><path d="M8 14v3"/><path d="M12 14v3"/><path d="M16 14v3"/></svg>
+    <div class="kpi-value">R$ {{ cards.saldo_real_fin | brl }}</div>
+    <div class="kpi-sub">nominal R$ {{ cards.saldo_nominal_fin | brl }} &middot; parcelas/mês R$ {{ cards.mensal_fin | brl }}</div>
+  </div>
+  <div class="vg-card kpi">
+    <div class="kpi-label">Contrato mais caro</div>
+    <svg class="kpi-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>
+    {% if mais_caro %}
+    <div class="kpi-value sm">{{ mais_caro.instituicao | upper }} &middot; {{ '%.2f' | format(mais_caro.taxa_am * 100) | replace('.', ',') }}% a.m.</div>
+    <div class="kpi-sub">Contrato {{ mais_caro.contrato }}{% if mais_caro.taxa_variavel %} &middot; + IPCA{% endif %}</div>
+    {% else %}<div class="kpi-value sm">—</div>{% endif %}
+  </div>
+  <div class="vg-card kpi">
+    <div class="kpi-label">Próximo vencimento</div>
+    <svg class="kpi-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    {% if proximo %}
+    <div class="kpi-value sm">{{ proximo.data.strftime('%d/%m/%Y') }}</div>
+    <div class="kpi-sub">{% if proximo.dias == 0 %}hoje{% elif proximo.dias == 1 %}amanhã{% else %}em {{ proximo.dias }} dias{% endif %} &middot; {{ proximo.contrato.operacao }} {{ proximo.contrato.contrato }}</div>
+    {% else %}<div class="kpi-value sm">—</div>{% endif %}
+  </div>
+</div>
+
+{% if cards.n_sem_cadastro or cards.n_requer_revisao %}
+<div class="fin-aviso" style="margin:0 0 16px">
+  {% if cards.n_sem_cadastro %}<strong>{{ cards.n_sem_cadastro }}</strong> financiamento(s) sem os termos do contrato cadastrados — entram pelo valor nominal das parcelas restantes.{% endif %}
+  {% if cards.n_requer_revisao %}<strong>{{ cards.n_requer_revisao }}</strong> com parcela vencida em aberto — saldo requer revisão manual.{% endif %}
+</div>
+{% endif %}
+
+{# ── Contratos por empresa ── #}
+<div class="vg-card" style="margin-bottom:var(--d-gap,16px)">
+  <div class="vg-card-head">
+    <div>
+      <div class="vg-card-title">Contratos por empresa</div>
+      <div class="vg-card-sub">Valores consolidados na posição atual</div>
+    </div>
+  </div>
+  <div style="overflow-x:auto">
+  <table class="vg-table">
+    <colgroup>
+      <col style="width:12%"><col style="width:10%"><col style="width:12%"><col style="width:6%"><col style="width:8%">
+      <col style="width:10%"><col style="width:12%"><col style="width:13%"><col style="width:9%"><col style="width:8%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Contrato</th><th>Placa</th><th>Instituição</th><th>Tipo</th><th>Taxa a.m.</th>
+        <th>Parcelas</th><th>Valor Financiado</th><th>Saldo Devedor Hoje</th><th>Quitação Prevista</th><th></th>
+      </tr>
+    </thead>
+    {% for g in grupos %}
+    <tbody class="grp" id="grp-{{ loop.index }}" data-open="true">
+      <tr class="grp-head-row">
+        <td colspan="10">
+          <button type="button" class="grp-head" onclick="grpToggle('grp-{{ loop.index }}')" aria-expanded="true">
+            <svg class="grp-chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            <span class="grp-name">{{ g.empresa }}</span>
+            <span class="vg-pill">{{ g.n_ativos }} contrato{{ 's' if g.n_ativos != 1 }}</span>
+            <span class="grp-total">R$ {{ g.saldo | brl }}</span>
+          </button>
+        </td>
+      </tr>
+      {% for c in g.contratos %}
+      <tr class="{% if c.quitado %}row-quitado{% endif %}">
+        <td class="strong">{{ c.contrato or c.operacao }}{% if c.quitado %}<span class="badge-quitado">Quitado</span>{% endif %}</td>
+        <td>{% if c.placa %}{{ placa_cell(c) }}{% else %}<span style="color:var(--ink-4)">sem placa</span>{% endif %}</td>
+        <td>{{ c.instituicao }}</td>
+        <td>
+          {% if c.sistema == 'SAC' %}<span class="badge-sistema sac">SAC</span>
+          {% elif c.sistema == 'PRICE' %}<span class="badge-sistema price">Price</span>
+          {% else %}<span class="badge-sistema na">—</span>{% endif %}
+        </td>
+        <td>{% if c.taxa_am is not none %}{{ '%.2f' | format(c.taxa_am * 100) | replace('.', ',') }}%{% if c.taxa_variavel %}<span class="tag-carencia" title="Pós-fixado">+IPCA</span>{% endif %}{% else %}—{% endif %}</td>
+        <td>{{ c.pagas }}/{{ c.parcelas_total }}{% if c.saldo_origem == 'carencia' %}<span class="tag-carencia abaixo">em carência</span>{% endif %}</td>
+        <td>{% if c.valor_financiado is not none %}R$ {{ c.valor_financiado | brl }}{% else %}—{% endif %}</td>
+        <td class="strong"><span class="{{ 'saldo-estimado' if c.sem_cadastro or c.requer_revisao }}">R$ {{ c.saldo_real | brl }}</span>{% if c.sem_cadastro or c.requer_revisao %}<span class="saldo-origem o-{{ c.saldo_origem }}">{{ FIN_ORIGEM.get(c.saldo_origem, c.saldo_origem) }}</span>{% endif %}</td>
+        <td>{% if c.data_quitacao %}{{ c.data_quitacao[5:7] }}/{{ c.data_quitacao[:4] }}{% else %}—{% endif %}</td>
+        <td class="acao">{% if not c.quitado %}<button class="fin-btn-vender" onclick="finMarcarVendido('{{ c.id }}', true)">Vendido</button>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    {% else %}
+    <tbody><tr><td colspan="10" style="color:var(--ink-3)">Nenhum financiamento cadastrado.</td></tr></tbody>
+    {% endfor %}
+  </table>
+  </div>
+</div>
+
+{# ── Ranking + Projeção ── #}
+<div class="vg-grid c2">
+  <div class="vg-card">
+    <div class="vg-card-head">
+      <div>
+        <div class="vg-card-title">Ranking por custo</div>
+        <div class="vg-card-sub">Taxas mensais, da maior para a menor</div>
+      </div>
+    </div>
+    {% for c in ranking %}
+    <div class="rk">
+      <span class="rk-pos">{{ loop.index }}</span>
+      <div class="rk-main">
+        <div class="rk-name">{{ c.contrato or c.operacao }}</div>
+        <div class="rk-sub">{{ c.instituicao | upper }}{% if c.placa %} &middot; {{ c.placa }}{% endif %} &middot; saldo R$ {{ c.saldo_real | brl }}</div>
+      </div>
+      <div class="rk-rate">{{ '%.2f' | format(c.taxa_am * 100) | replace('.', ',') }}% a.m.
+        <small>{{ '%.2f' | format(((1 + c.taxa_am) ** 12 - 1) * 100) | replace('.', ',') }}% a.a.{% if c.taxa_variavel %} + IPCA{% endif %}</small></div>
+    </div>
+    {% else %}
+    <div class="vg-card-body" style="color:var(--ink-3)">Nenhum contrato com taxa cadastrada.</div>
+    {% endfor %}
+  </div>
+  <div class="vg-card">
+    <div class="vg-card-head"><div class="vg-card-title">Projeção de Dívida — Financiamentos</div></div>
+    <div class="vg-card-body">{{ timeline(timeline_pontos, 'tl-fin') }}</div>
+  </div>
+</div>
+
+{# ── Vendidos ── #}
+<div class="vg-card grp" id="grp-vendidos" data-open="false" style="border-top:none">
+  <button type="button" class="grp-head" style="border-radius:var(--d-radius,12px)" onclick="grpToggle('grp-vendidos')" aria-expanded="false">
+    <svg class="grp-chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+    <span class="grp-name">Veículos vendidos</span>
+    <span class="vg-pill">{{ vendidos | length }}</span>
+  </button>
+  <div class="grp-body">
+    <table class="vg-table">
+      <thead><tr><th>Contrato</th><th>Placa</th><th>Instituição</th><th>Parcelas</th><th>R$ Parcela</th><th>Total Pago</th><th>Total</th><th></th></tr></thead>
+      <tbody>
+        {% for c in vendidos %}
+        <tr>
+          <td class="strong">{{ c.contrato or c.operacao }}</td>
+          <td>{{ placa_cell(c) }}</td>
+          <td>{{ c.instituicao }}</td>
+          <td>{{ c.parcelas_total }}</td>
+          <td>R$ {{ c.valor_parcela | brl }}</td>
+          <td>R$ {{ c.total_pago | brl }}</td>
+          <td>R$ {{ c.total | brl }}</td>
+          <td class="acao"><button class="fin-btn-restaurar" onclick="finMarcarVendido('{{ c.id }}', false)">Restaurar</button></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="color:var(--ink-3)">Nenhum carro vendido cadastrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function grpToggle(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var open = el.dataset.open === 'true';
+  el.dataset.open = open ? 'false' : 'true';
+  var btn = el.querySelector('.grp-head');
+  if (btn) btn.setAttribute('aria-expanded', String(!open));
+}
+</script>
+{{ fin_scripts() }}
+</div>{# .fin-wrap #}
+{% endblock %}

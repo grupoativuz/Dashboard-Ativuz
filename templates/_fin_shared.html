@@ -1,0 +1,312 @@
+{# Estilos, modal e ações compartilhados pelas três páginas da Carteira
+   Financeira (Visão Geral, Empréstimos e Financiamentos, Consórcios). #}
+
+{% macro fin_styles() %}
+<style>
+.fin-wrap { width: 100%; }
+.fin-header { margin-bottom: 24px; text-align: left; }
+.fin-header h1 { font-size: 20px; font-weight: 700; color: var(--ink); margin: 0 0 4px; }
+.fin-header p  { font-size: 13px; color: var(--ink-3); margin: 0; }
+
+/* ── Cards ── */
+.fin-cards { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
+.fin-card-row { display: grid; gap: 12px; }
+.fin-card-row.r4 { grid-template-columns: repeat(4, 1fr); }
+.fin-card-row.r3 { grid-template-columns: repeat(3, 1fr); }
+.fin-card-row.r2 { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 960px) { .fin-card-row.r4, .fin-card-row.r3 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 540px) { .fin-card-row.r4, .fin-card-row.r3, .fin-card-row.r2 { grid-template-columns: 1fr; } }
+.fin-card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; padding: 16px 20px;
+}
+.fin-card-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--ink-3); margin-bottom: 8px; text-align: center;
+}
+.fin-card-value {
+  font-size: 20px; font-weight: 700; color: var(--ink);
+  line-height: 1; font-variant-numeric: tabular-nums; text-align: center;
+}
+.fin-card-value.sm { font-size: 16px; }
+.fin-card-value.accent { color: var(--brand-orange, #FF4713); }
+.fin-card-sub { font-size: 10px; color: var(--ink-3); text-align: center; margin-top: 6px; line-height: 1.3; }
+
+/* ── Seções ── */
+.fin-section { margin-bottom: 32px; }
+.fin-section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 6px; }
+.fin-section-title { font-size: 15px; font-weight: 700; color: var(--ink); }
+.fin-section-sub   { font-size: 12px; color: var(--ink-3); }
+.fin-box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+
+/* Aviso de cadastro incompleto / revisão manual */
+.fin-aviso {
+  background: #fffbeb; border: 1px solid #fde68a; color: #92400e;
+  border-radius: 8px; padding: 10px 14px; font-size: 12px; line-height: 1.5; margin: -16px 0 24px;
+}
+
+/* ── Tabela ── */
+.fin-table-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+.fin-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.fin-table th {
+  background: var(--bg); padding: 6px 8px; text-align: center;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--ink-3); border-bottom: 1px solid var(--line); white-space: nowrap;
+}
+.fin-table td {
+  padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ink-2);
+}
+.fin-table tr:last-child td { border-bottom: none; }
+.fin-table tbody tr:hover td { background: var(--surface-2, #f9f9fb); }
+.fin-table td.l, .fin-table th.l { text-align: left; }
+.fin-table td.r, .fin-table th.r { text-align: right; }
+.fin-table tr.row-quitado td { color: var(--ink-3); }
+.fin-table tr.row-grupo td {
+  background: var(--bg); font-weight: 700; color: var(--ink); text-align: left;
+  font-size: 11px; text-transform: uppercase; letter-spacing: .05em; padding: 8px;
+}
+.fin-table tr.row-subtotal td { background: var(--surface-2, #f9f9fb); font-weight: 600; color: var(--ink); }
+.fin-tfoot td { padding: 7px 8px; border-top: 2px solid var(--line); background: var(--bg); font-weight: 700; color: var(--ink); }
+
+/* ── Badges ── */
+.badge-quitado {
+  display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  background: #22a06b; color: #fff; border-radius: 4px; padding: 2px 6px; vertical-align: middle; margin-left: 6px;
+}
+.badge-sistema {
+  display: inline-block; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  border-radius: 4px; padding: 2px 7px; vertical-align: middle;
+}
+.badge-sistema.sac   { background: var(--info-soft, #dbeafe); color: var(--info, #1e40af); }
+.badge-sistema.price { background: var(--brand-orange-soft); color: var(--brand-orange-2); }
+.badge-sistema.na    { background: #f1f5f9; color: #64748b; }
+.saldo-real { font-variant-numeric: tabular-nums; }
+.saldo-real.saldo-estimado { color: var(--ink-3); }
+.saldo-origem {
+  display: inline-block; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  border-radius: 3px; padding: 1px 4px; margin-left: 5px; vertical-align: middle; white-space: nowrap;
+}
+.saldo-origem.o-carencia       { background: #fef3c7; color: #92400e; }
+.saldo-origem.o-sac            { background: #dcfce7; color: #166534; }
+.saldo-origem.o-price          { background: #dcfce7; color: #166534; }
+.saldo-origem.o-tabela         { background: #dbeafe; color: #1e40af; }
+.saldo-origem.o-nominal        { background: #f1f5f9; color: #64748b; }
+.saldo-origem.o-revisao_manual { background: #fee2e2; color: #991b1b; }
+.saldo-origem.o-mais           { background: #ede9fe; color: #5b21b6; cursor: help; }
+
+/* ── Busca por placa ── */
+.fin-search { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.fin-search label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); white-space: nowrap; }
+.fin-search input {
+  padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+  font-size: 13px; color: var(--ink); width: 200px; text-transform: uppercase;
+}
+.fin-search input:focus { outline: 2px solid var(--brand-orange, #FF4713); outline-offset: 1px; }
+#fin-not-found { font-size: 13px; color: var(--danger, #e53e3e); font-weight: 600; display: none; margin-left: 8px; }
+
+/* ── Abas ── */
+.fin-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid var(--line); }
+.fin-tab-btn {
+  padding: 8px 20px; font-size: 13px; font-weight: 600; border: none; background: none; cursor: pointer;
+  border-bottom: 3px solid transparent; color: var(--ink-3); margin-bottom: -2px;
+}
+.fin-tab-btn.active { border-bottom-color: var(--brand-orange, #FF4713); color: var(--brand-orange, #FF4713); }
+
+.fin-btn-vender, .fin-btn-restaurar {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-3);
+  border-radius: 6px; padding: 3px 6px; cursor: pointer;
+}
+.fin-btn-vender:hover { color: var(--danger, #e53e3e); border-color: var(--danger, #e53e3e); }
+.fin-btn-restaurar:hover { color: var(--brand-orange, #FF4713); border-color: var(--brand-orange, #FF4713); }
+.fin-contrato-link {
+  background: none; border: none; padding: 0; cursor: pointer; color: #4338ca;
+  text-decoration: underline; font: inherit; font-variant-numeric: tabular-nums;
+}
+.fin-contrato-link:hover { color: #322aa0; }
+.fin-resgate-info { font-size: 10px; color: var(--ink-3); line-height: 1.3; white-space: nowrap; }
+
+/* Barra de progresso */
+.prog-wrap { display: flex; align-items: center; gap: 6px; justify-content: center; }
+.prog-track { width: 80px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+.prog-fill { height: 100%; border-radius: 3px; }
+.prog-fill.green  { background: #22a06b; }
+.prog-fill.yellow { background: #e6a817; }
+.prog-fill.red    { background: var(--danger, #e53e3e); }
+.prog-pct { font-size: 11px; font-weight: 600; min-width: 34px; text-align: right; }
+
+/* Modal de resgate */
+.fin-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 1000; align-items: center; justify-content: center; }
+.fin-modal-overlay.open { display: flex; }
+.fin-modal { background: var(--surface); border-radius: 12px; padding: 20px; width: 100%; max-width: 320px; box-shadow: 0 12px 32px rgba(0,0,0,.25); }
+.fin-modal h3 { margin: 0 0 4px; font-size: 15px; color: var(--ink); }
+.fin-modal p { margin: 0 0 14px; font-size: 12px; color: var(--ink-3); }
+.fin-modal label { display: block; font-size: 11px; font-weight: 700; color: var(--ink-3); margin: 10px 0 4px; }
+.fin-modal input { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; background: var(--bg); color: var(--ink); }
+.fin-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.fin-modal-actions button { font-size: 12px; font-weight: 700; border-radius: 6px; padding: 7px 14px; cursor: pointer; }
+.fin-modal-cancelar { border: 1px solid var(--line); background: var(--surface); color: var(--ink-3); }
+.fin-modal-salvar { border: none; background: #4338ca; color: #fff; }
+
+/* ── Layout de cards (Visão Geral, Empréstimos, Consórcios) ── */
+.vg-header { margin-bottom: 20px; }
+.vg-header h1 { font-size: 24px; font-weight: 700; color: var(--ink); margin: 0 0 4px; letter-spacing: -.01em; }
+.vg-header p { font-size: 13px; color: var(--ink-3); margin: 0; }
+.vg-header .meta { font-size: 11px; color: var(--ink-4); margin-top: 4px; }
+.vg-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--d-radius, 12px); box-shadow: var(--shadow-sm); min-width: 0; overflow: hidden; }
+.vg-grid { display: grid; gap: var(--d-gap, 16px); margin-bottom: var(--d-gap, 16px); }
+.vg-grid.c4 { grid-template-columns: repeat(4, 1fr); }
+.vg-grid.c3 { grid-template-columns: repeat(3, 1fr); }
+.vg-grid.c2 { grid-template-columns: 1fr 1fr; }
+.vg-grid.c2w { grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr); }
+@media (max-width: 1100px) { .vg-grid.c4, .vg-grid.c3 { grid-template-columns: repeat(2, 1fr); } .vg-grid.c2w { grid-template-columns: 1fr; } }
+@media (max-width: 640px)  { .vg-grid.c4, .vg-grid.c3, .vg-grid.c2 { grid-template-columns: 1fr; } }
+.kpi { padding: 18px 20px; position: relative; }
+.kpi-label { font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 18px; padding-right: 30px; }
+.kpi-icon { position: absolute; top: 16px; right: 18px; width: 22px; height: 22px; color: var(--brand-orange); }
+.kpi-value { font-size: 24px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -.01em; }
+.kpi-value.sm { font-size: 20px; }
+.kpi-sub { font-size: 11px; color: var(--ink-3); margin-top: 12px; }
+.vg-card-head { padding: 18px 22px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.vg-card-title { font-size: 15px; font-weight: 700; color: var(--ink); }
+.vg-card-sub { font-size: 11px; color: var(--ink-3); margin-top: 3px; }
+.vg-card-body { padding: 18px 22px; }
+.vg-pill { display: inline-block; font-size: 10px; font-weight: 600; color: var(--ink-3); background: var(--line-2); border-radius: 6px; padding: 3px 8px; vertical-align: middle; }
+
+/* Tabela dentro de card */
+.vg-table { width: 100%; border-collapse: collapse; font-size: 11.5px; table-layout: fixed; }
+.vg-table th { padding: 9px 8px; text-align: center; position: sticky; top: 0; background: var(--surface); z-index: 1; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); border-bottom: 1px solid var(--line); white-space: normal; line-height: 1.3; vertical-align: middle; }
+.vg-table td { padding: 9px 8px; text-align: center; border-bottom: 1px solid var(--line-2); color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vg-table td.r, .vg-table th.r { text-align: right; }
+.vg-table td.strong { font-weight: 700; color: var(--ink); }
+.vg-table td.acao { overflow: visible; text-overflow: clip; padding-left: 4px; padding-right: 6px; }
+.vg-table tr.row-quitado td { color: var(--ink-4); }
+.vg-table tbody tr:hover td { background: var(--surface-2); }
+.tag-carencia { font-size: 9px; color: var(--brand-orange); margin-left: 6px; }
+.tag-carencia.abaixo { display: block; margin: 2px 0 0; line-height: 1.2; }
+
+/* Grupos expansíveis (por empresa): um <tbody> por empresa dentro de UMA tabela,
+   para as colunas ficarem na mesma posição em todos os grupos. */
+.grp-head-row td { padding: 0 !important; background: var(--surface-2); border-top: 1px solid var(--line); }
+.grp-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 18px; background: transparent; border: 0; cursor: pointer; font: inherit; color: var(--ink); text-align: left; }
+.grp-head:hover { background: var(--line-2); }
+.grp-chev { width: 14px; height: 14px; color: var(--ink-3); transition: transform .2s; flex-shrink: 0; }
+.grp[data-open="false"] .grp-chev { transform: rotate(-90deg); }
+.grp-name { font-size: 13px; font-weight: 700; }
+.grp-total { margin-left: auto; font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.grp[data-open="false"] tr:not(.grp-head-row) { display: none; }
+.grp-body { overflow-x: auto; }
+.grp[data-open="false"] .grp-body { display: none; }
+
+/* Ranking */
+.rk { display: flex; align-items: center; gap: 12px; padding: 11px 18px; border-bottom: 1px solid var(--line-2); }
+.rk:last-child { border-bottom: none; }
+.rk-pos { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--line-2); color: var(--ink-2); flex-shrink: 0; }
+.rk:first-child .rk-pos { background: var(--brand-orange); color: #fff; }
+.rk-main { flex: 1; min-width: 0; }
+.rk-name { font-size: 13px; font-weight: 700; color: var(--ink); }
+.rk-sub { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+.rk-rate { font-size: 13px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rk-rate small { display: block; font-size: 10px; font-weight: 500; color: var(--ink-3); text-align: right; }
+
+/* Layout lado a lado: tabela + linha do tempo */
+.fin-split { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .fin-split { grid-template-columns: 1fr; } }
+</style>
+{% endmacro %}
+
+{% macro placa_cell(c) -%}
+  {% if c.placas | length > 1 -%}
+    {{ c.placas[0] }}<span class="saldo-origem o-mais" title="Também: {{ c.placas[1:] | join(', ') }}">+{{ c.placas | length - 1 }}</span>
+  {%- elif c.placa %}{{ c.placa }}{% else %}—{% endif %}
+{%- endmacro %}
+
+{% macro data_br(iso) -%}
+  {% if iso %}{{ iso[8:10] }}/{{ iso[5:7] }}/{{ iso[:4] }}{% else %}—{% endif %}
+{%- endmacro %}
+
+{# Busca por placa + abas Carteira Ativa / Vendidos + ações (vendido, resgate). #}
+{% macro fin_scripts() %}
+<script>
+(function () {
+  var input = document.getElementById('fin-search-input');
+  if (!input) return;
+  var notFound = document.getElementById('fin-not-found');
+  var rows = document.querySelectorAll('#fin-table tbody tr[data-placa]');
+  input.addEventListener('input', function () {
+    var q = input.value.trim().toUpperCase();
+    notFound.style.display = 'none';
+    var found = 0;
+    rows.forEach(function (tr) {
+      if (!q) { tr.style.display = ''; found++; return; }
+      var placa = (tr.dataset.placa || '').toUpperCase();
+      if (placa.includes(q)) { tr.style.display = ''; found++; } else tr.style.display = 'none';
+    });
+    if (q && found === 0) notFound.style.display = 'inline';
+  });
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { input.value = ''; input.dispatchEvent(new Event('input')); }
+  });
+})();
+
+function finSwitch(aba) {
+  ['ativa', 'vendidos'].forEach(function (a) {
+    document.getElementById('fin-tab-' + a).style.display = (a === aba ? '' : 'none');
+    document.getElementById('fin-tab-btn-' + a).classList.toggle('active', a === aba);
+  });
+}
+
+function finMarcarVendido(id, vendido) {
+  if (!confirm(vendido ? 'Marcar este carro como vendido e remover da carteira ativa?' : 'Restaurar este carro para a carteira ativa?')) return;
+  fetch('/api/financiamentos/' + id + '/vendido', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ vendido: vendido }),
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (json) { if (json.ok) location.reload(); else alert('Erro: ' + (json.erro || 'falha ao atualizar.')); })
+    .catch(function () { alert('Erro de conexão.'); });
+}
+
+var finResgateIdAtual = null;
+function finAbrirResgate(id, valorAtual, dataAtual) {
+  finResgateIdAtual = id;
+  document.getElementById('fin-resgate-valor').value = (valorAtual === null || valorAtual === undefined) ? '' : valorAtual;
+  document.getElementById('fin-resgate-data').value = dataAtual || '';
+  document.getElementById('fin-resgate-overlay').classList.add('open');
+}
+function finFecharResgate() {
+  finResgateIdAtual = null;
+  document.getElementById('fin-resgate-overlay').classList.remove('open');
+}
+function finSalvarResgate() {
+  if (!finResgateIdAtual) return;
+  var valor = document.getElementById('fin-resgate-valor').value;
+  var data  = document.getElementById('fin-resgate-data').value;
+  fetch('/api/financiamentos/' + finResgateIdAtual + '/resgate', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ valor_resgate: valor, data_resgate: data }),
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (json) { if (json.ok) location.reload(); else alert('Erro: ' + (json.erro || 'falha ao salvar.')); })
+    .catch(function () { alert('Erro de conexão.'); });
+}
+</script>
+{% endmacro %}
+
+{% macro resgate_modal() %}
+<div class="fin-modal-overlay" id="fin-resgate-overlay">
+  <div class="fin-modal">
+    <h3>Registrar resgate</h3>
+    <p>Valor que ficou pendente pra sacar ao final deste consórcio.</p>
+    <label for="fin-resgate-valor">Valor (R$)</label>
+    <input type="number" id="fin-resgate-valor" step="0.01" min="0" placeholder="0,00">
+    <label for="fin-resgate-data">Data de recebimento do resgate</label>
+    <input type="date" id="fin-resgate-data">
+    <div class="fin-modal-actions">
+      <button class="fin-modal-cancelar" onclick="finFecharResgate()">Cancelar</button>
+      <button class="fin-modal-salvar" onclick="finSalvarResgate()">Salvar</button>
+    </div>
+  </div>
+</div>
+{% endmacro %}

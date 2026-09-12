@@ -1,0 +1,117 @@
+{#
+  Linha do Tempo Vertical — evolução mensal do saldo devedor.
+
+  Uso:  {% from "_timeline.html" import timeline %}
+        {{ timeline(pontos, 'tl-geral') }}
+
+  `pontos` é a lista devolvida por _fin_timeline() no app.py: cada item tem
+  label ("set/26"), valor, delta (variação vs. o ponto anterior; None no
+  primeiro), hoje (bool) e quitado (bool). O componente não calcula nada —
+  só desenha o que recebe, por isso serve às três páginas da Carteira.
+
+  Se a lista tiver mais de `max_visiveis` pontos, os do meio ficam recolhidos
+  numa linha "⋮ mais N meses" que expande ao clicar.
+#}
+{% macro timeline(pontos, id, max_visiveis=8) %}
+{% set n = pontos | length %}
+{% set colapsar = n > max_visiveis %}
+{# cabeça: hoje + 3 meses · cauda: 2 últimos (penúltimo + quitado) #}
+{% set fim_cabeca = 4 if colapsar else n %}
+{% set ini_cauda  = n - 2 if colapsar else n %}
+{% set n_ocultos  = ini_cauda - fim_cabeca %}
+{# média de queda por mês no trecho recolhido, para a linha "mais N meses" #}
+{% set queda_media = ((pontos[fim_cabeca - 1].valor - pontos[ini_cauda].valor) / (ini_cauda - fim_cabeca + 1)) if colapsar and n_ocultos > 0 else 0 %}
+<div class="tl" id="{{ id }}">
+  <div class="tl-linha" aria-hidden="true"></div>
+  {% for p in pontos %}
+    {% set oculto = colapsar and loop.index0 >= fim_cabeca and loop.index0 < ini_cauda %}
+    {% if oculto and loop.index0 == fim_cabeca %}
+    <button type="button" class="tl-mais" onclick="tlExpandir('{{ id }}')"
+            aria-expanded="false" aria-controls="{{ id }}">
+      <span class="tl-dot tl-dot-mais" aria-hidden="true">⌄</span>
+      <span>mais {{ n_ocultos }} meses{% if queda_media > 0 %} — reduzindo ~R$ {{ (queda_media / 1000) | round(0) | int }} mil/mês{% endif %}</span>
+    </button>
+    {% endif %}
+    <div class="tl-item {{ 'tl-oculto' if oculto }} {{ 'tl-hoje' if p.hoje }} {{ 'tl-quitado' if p.quitado }}">
+      <span class="tl-dot" aria-hidden="true"></span>
+      <div class="tl-row">
+        <span class="tl-label">{{ p.label }}{% if p.hoje %} <span class="tl-tag">(hoje)</span>{% elif p.quitado %} <span class="tl-tag">· quitado</span>{% endif %}</span>
+        <span class="tl-valores">
+          <span class="tl-valor">R$ {{ p.valor | brl }}</span>
+          {% if p.delta is not none and p.delta != 0 %}
+          <span class="tl-delta {{ 'tl-delta-neg' if p.delta < 0 else 'tl-delta-pos' }}">{{ '−' if p.delta < 0 else '+' }}{{ (p.delta | abs) | brl }}</span>
+          {% endif %}
+        </span>
+      </div>
+    </div>
+    {% if oculto and loop.index0 == ini_cauda - 1 %}
+    <button type="button" class="tl-mais tl-menos tl-oculto" onclick="tlRecolher('{{ id }}')">
+      <span class="tl-dot tl-dot-mais" aria-hidden="true">⌃</span>
+      <span>recolher meses</span>
+    </button>
+    {% endif %}
+  {% else %}
+    <div class="tl-vazio">Nenhum saldo em aberto.</div>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{# Estilos e script do componente: incluir UMA vez por página, no bloco head. #}
+{% macro timeline_assets() %}
+<style>
+.tl { position: relative; padding-left: 28px; }
+.tl-linha { position: absolute; left: 7px; top: 6px; bottom: 6px; width: 1px; background: var(--line, #e0e0e0); }
+.tl-item { position: relative; padding-bottom: 22px; }
+.tl-item:last-child { padding-bottom: 0; }
+.tl-dot {
+  position: absolute; left: -26px; top: 3px; width: 11px; height: 11px;
+  border-radius: 50%; background: var(--surface, #fff); border: 1.5px solid var(--ink-3, #999);
+  box-sizing: border-box;
+}
+.tl-hoje .tl-dot { left: -28px; top: 1px; width: 15px; height: 15px; background: var(--info, #2E6BE6); border-color: var(--info, #2E6BE6); }
+.tl-quitado .tl-dot { background: var(--success, #0FAA6E); border-color: var(--success, #0FAA6E); }
+.tl-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; color: var(--ink); }
+.tl-hoje .tl-row { color: var(--ink); }
+.tl-label { white-space: nowrap; }
+.tl-tag { font-size: 11px; color: var(--ink-3); }
+.tl-quitado .tl-tag { color: var(--success, #0FAA6E); font-weight: 600; }
+.tl-valores { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.tl-valor { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); }
+.tl-delta { font-size: 11px; font-variant-numeric: tabular-nums; }
+.tl-delta-neg { color: var(--success, #0FAA6E); font-weight: 600; }
+.tl-delta-pos { color: var(--danger, #e53e3e); }
+.tl-oculto { display: none; }
+.tl[data-expandido="true"] .tl-oculto { display: block; }
+.tl[data-expandido="true"] .tl-mais:not(.tl-menos) { display: none; }
+.tl[data-expandido="true"] .tl-menos { display: flex; }
+.tl-mais {
+  position: relative; display: flex; align-items: center; gap: 8px;
+  background: none; border: 0; padding: 0 0 22px; margin: 0; cursor: pointer;
+  font: inherit; font-size: 12px; color: var(--ink-3); width: 100%; text-align: left;
+}
+.tl-mais:hover span:last-child { color: var(--brand-orange, #FF4713); text-decoration: underline; }
+.tl-dot-mais {
+  position: absolute; left: -28px; top: -2px; width: 15px; height: 15px;
+  border: 0; background: var(--bg, #f5f5f7); color: var(--ink-3);
+  font-size: 13px; line-height: 15px; text-align: center; font-weight: 700;
+}
+.tl-vazio { font-size: 13px; color: var(--ink-3); }
+</style>
+<script>
+function tlRecolher(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.dataset.expandido = 'false';
+  var btn = el.querySelector('.tl-mais:not(.tl-menos)');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+  el.scrollIntoView({ block: 'nearest' });
+}
+function tlExpandir(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.dataset.expandido = 'true';
+  var btn = el.querySelector('.tl-mais');
+  if (btn) btn.setAttribute('aria-expanded', 'true');
+}
+</script>
+{% endmacro %}

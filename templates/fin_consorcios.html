@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% from "_fin_shared.html" import fin_styles, fin_scripts, resgate_modal, placa_cell, data_br %}
+{% from "_timeline.html" import timeline, timeline_assets %}
+{% block title %}Consórcios — Ativuz{% endblock %}
+
+{% block head %}
+{{ fin_styles() }}
+{{ timeline_assets() }}
+<style>
+.ck { display: grid; grid-template-columns: 30px minmax(0, 1.2fr) minmax(0, 1.4fr) auto auto; gap: 16px; align-items: center; padding: 14px 22px; border-bottom: 1px solid var(--line-2); }
+.ck:last-child { border-bottom: none; }
+.ck-pos { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--line-2); color: var(--ink-2); }
+.ck-name { font-size: 14px; font-weight: 700; color: var(--ink); }
+.ck-sub { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+.ck-sub .fin-contrato-link { color: var(--ink-3); text-decoration: none; border-bottom: 1px dotted var(--ink-4); }
+.ck-sub .fin-contrato-link:hover { color: var(--brand-orange); border-color: var(--brand-orange); }
+.ck-contempl { display: inline-block; margin-top: 6px; font-size: 10px; color: var(--ink-4); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; }
+.ck-contempl.tem { color: var(--success); border-color: var(--success); background: var(--success-soft); }
+.ck-prog-head { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-2); font-weight: 600; margin-bottom: 6px; }
+.ck-track { height: 7px; background: var(--line-2); border-radius: 4px; overflow: hidden; }
+.ck-fill { height: 100%; border-radius: 4px; }
+.ck-fill.green  { background: var(--success); }
+.ck-fill.yellow { background: var(--warning); }
+.ck-fill.red    { background: var(--danger); }
+.ck-value { font-size: 15px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ck-acao { width: 56px; text-align: right; }
+.fin-btn-vender { opacity: 0; transition: opacity .12s; }
+.ck:hover .fin-btn-vender { opacity: 1; }
+.ck-resgate { font-size: 10px; color: var(--ink-3); margin-top: 3px; }
+@media (max-width: 760px) { .ck { grid-template-columns: 30px 1fr; } .ck-value, .ck-acao { grid-column: 2; text-align: left; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fin-wrap">
+
+<div class="vg-header">
+  <h1>Consórcios</h1>
+  <div class="meta">posição em {{ cards.data_referencia.strftime('%d/%m/%Y') }} &middot; próxima virada em {{ cards.proxima_virada.strftime('%d/%m/%Y') }}</div>
+</div>
+
+{# ── KPIs ── #}
+<div class="vg-grid c4">
+  <div class="vg-card kpi">
+    <div class="kpi-label">Total de cotas</div>
+    <svg class="kpi-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+    <div class="kpi-value">{{ cards.n_cons }}</div>
+    <div class="kpi-sub">parcelas/mês R$ {{ cards.mensal_cons | brl }}</div>
+  </div>
+  <div class="vg-card kpi">
+    <div class="kpi-label">Saldo Nominal total</div>
+    <svg class="kpi-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="15" x2="12" y2="15"/></svg>
+    <div class="kpi-value">R$ {{ cards.saldo_nominal_cons | brl }}</div>
+    <div class="kpi-sub">sem juros a descontar</div>
+  </div>
+  <div class="vg-card kpi">
+    <div class="kpi-label">Mais próxima de quitar</div>
+    <svg class="kpi-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><polyline points="9 16 11 18 15 14"/></svg>
+    {% if mais_proxima %}
+    <div class="kpi-value sm">{{ mais_proxima.nomes }}</div>
+    <div class="kpi-sub">{{ mais_proxima.restante }} parcela{{ 's' if mais_proxima.restante != 1 }} restante{{ 's' if mais_proxima.restante != 1 }}</div>
+    {% else %}<div class="kpi-value sm">—</div>{% endif %}
+  </div>
+  <div class="vg-card kpi">
+    <div class="kpi-label">Mais distante de quitar</div>
+    <svg class="kpi-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="2" x2="12" y2="5"/></svg>
+    {% if mais_distante %}
+    <div class="kpi-value sm">{{ mais_distante.nomes }}</div>
+    <div class="kpi-sub">{{ mais_distante.restante }} parcelas restantes</div>
+    {% else %}<div class="kpi-value sm">—</div>{% endif %}
+  </div>
+</div>
+
+{# ── Ranking + Projeção ── #}
+<div class="vg-grid c2w">
+  <div class="vg-card">
+    <div class="vg-card-head">
+      <div>
+        <div class="vg-card-title">Ranking por percentual quitado</div>
+        <div class="vg-card-sub">Estimativa baseada na quantidade de parcelas restantes</div>
+      </div>
+    </div>
+    {% for c in cotas %}
+    {% set pct_int = (c.pct_quitado * 100) | round(0) | int %}
+    {% set cor = 'green' if c.pct_quitado > 0.8 else ('yellow' if c.pct_quitado > 0.5 else 'red') %}
+    <div class="ck">
+      <span class="ck-pos">{{ loop.index }}</span>
+      <div>
+        <div class="ck-name">{{ c.operacao }}</div>
+        <div class="ck-sub">
+          <button class="fin-contrato-link" title="Registrar resgate deste consórcio"
+                  onclick="finAbrirResgate('{{ c.id }}', {{ c.valor_resgate if c.valor_resgate is not none else 'null' }}, '{{ c.data_resgate or '' }}')">{{ c.contrato }}</button>
+          {% if c.placa %} &middot; {{ placa_cell(c) }}{% endif %}
+        </div>
+        {% if c.valor_resgate is not none %}<div class="ck-resgate">resgate R$ {{ c.valor_resgate | brl }}{% if c.data_resgate %} ({{ data_br(c.data_resgate) }}){% endif %}</div>{% endif %}
+        {# Reservado: status de contemplação ainda não é carregado de lugar nenhum. #}
+        <span class="ck-contempl {{ 'tem' if c.contemplacao }}" title="Dado ainda não cadastrado">{{ c.contemplacao or 'Status de contemplação' }}</span>
+      </div>
+      <div>
+        <div class="ck-prog-head"><span>{{ c.restante }} parcela{{ 's' if c.restante != 1 }} restante{{ 's' if c.restante != 1 }}</span><span>{{ pct_int }}%</span></div>
+        <div class="ck-track"><div class="ck-fill {{ cor }}" style="width:{{ pct_int }}%"></div></div>
+      </div>
+      <div class="ck-value">R$ {{ c.devedor | brl }}</div>
+      <div class="ck-acao"><button class="fin-btn-vender" onclick="finMarcarVendido('{{ c.id }}', true)">Vendido</button></div>
+    </div>
+    {% else %}
+    <div class="vg-card-body" style="color:var(--ink-3)">Nenhuma cota ativa.</div>
+    {% endfor %}
+  </div>
+  <div class="vg-card">
+    <div class="vg-card-head"><div class="vg-card-title">Projeção de Saldo — Consórcios</div></div>
+    <div class="vg-card-body">{{ timeline(timeline_pontos, 'tl-cons') }}</div>
+  </div>
+</div>
+
+{# ── Quitadas e vendidas (recolhidas) ── #}
+<div class="vg-grid c2">
+  <div class="vg-card">
+    <table class="vg-table">
+      <tbody class="grp" id="grp-quitadas" data-open="false">
+        <tr class="grp-head-row"><td colspan="5">
+          <button type="button" class="grp-head" onclick="grpToggle('grp-quitadas')" aria-expanded="false">
+            <svg class="grp-chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            <span class="grp-name">Cotas quitadas</span><span class="vg-pill">{{ quitadas | length }}</span>
+          </button>
+        </td></tr>
+        <tr><th>Operação</th><th>Contrato</th><th>Placa</th><th>Total Pago</th><th></th></tr>
+        {% for c in quitadas %}
+        <tr>
+          <td class="strong">{{ c.operacao }}</td>
+          <td><button class="fin-contrato-link" onclick="finAbrirResgate('{{ c.id }}', {{ c.valor_resgate if c.valor_resgate is not none else 'null' }}, '{{ c.data_resgate or '' }}')">{{ c.contrato }}</button>
+            {% if c.valor_resgate is not none %}<div class="fin-resgate-info">resgate R$ {{ c.valor_resgate | brl }}</div>{% endif %}</td>
+          <td>{{ placa_cell(c) }}</td>
+          <td>R$ {{ c.total_pago | brl }}</td>
+          <td class="acao"><button class="fin-btn-vender" style="opacity:1" onclick="finMarcarVendido('{{ c.id }}', true)">Vendido</button></td>
+        </tr>
+        {% else %}<tr><td colspan="5" style="color:var(--ink-3)">Nenhuma.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="vg-card">
+    <table class="vg-table">
+      <tbody class="grp" id="grp-vendidos" data-open="false">
+        <tr class="grp-head-row"><td colspan="5">
+          <button type="button" class="grp-head" onclick="grpToggle('grp-vendidos')" aria-expanded="false">
+            <svg class="grp-chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            <span class="grp-name">Veículos vendidos</span><span class="vg-pill">{{ vendidos | length }}</span>
+          </button>
+        </td></tr>
+        <tr><th>Operação</th><th>Contrato</th><th>Placa</th><th>Total Pago</th><th></th></tr>
+        {% for c in vendidos %}
+        <tr>
+          <td class="strong">{{ c.operacao }}</td>
+          <td><button class="fin-contrato-link" onclick="finAbrirResgate('{{ c.id }}', {{ c.valor_resgate if c.valor_resgate is not none else 'null' }}, '{{ c.data_resgate or '' }}')">{{ c.contrato }}</button>
+            {% if c.valor_resgate is not none %}<div class="fin-resgate-info">resgate R$ {{ c.valor_resgate | brl }}</div>{% endif %}</td>
+          <td>{{ placa_cell(c) }}</td>
+          <td>R$ {{ c.total_pago | brl }}</td>
+          <td class="acao"><button class="fin-btn-restaurar" onclick="finMarcarVendido('{{ c.id }}', false)">Restaurar</button></td>
+        </tr>
+        {% else %}<tr><td colspan="5" style="color:var(--ink-3)">Nenhum.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function grpToggle(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var open = el.dataset.open === 'true';
+  el.dataset.open = open ? 'false' : 'true';
+  var btn = el.querySelector('.grp-head');
+  if (btn) btn.setAttribute('aria-expanded', String(!open));
+}
+</script>
+{{ fin_scripts() }}
+{{ resgate_modal() }}
+</div>{# .fin-wrap #}
+{% endblock %}
