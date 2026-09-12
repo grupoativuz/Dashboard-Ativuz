@@ -107,25 +107,29 @@
   }
 
   /* ── Ribbon de KPIs ── */
+  /* ── Ribbon de KPIs Superior (Card de Cima - Largura Total) ── */
   .inad-kpi-card {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 12px;
-    padding: 13px 18px;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
+    padding: 14px 22px;
+    margin-bottom: 12px;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .kpi-metrics-group {
-    display: flex;
-    align-items: center;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
     gap: 20px;
-    flex-wrap: wrap;
-    flex: 1;
+    width: 100%;
+    align-items: center;
+  }
+  @media (max-width: 900px) {
+    .kpi-metrics-group { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  }
+  @media (max-width: 500px) {
+    .kpi-metrics-group { grid-template-columns: 1fr; gap: 12px; }
   }
 
   .kpi-col {
@@ -184,45 +188,78 @@
   .kpi-pill-amber { background: #fef3c7; color: #92400e; }
   .kpi-pill-green { background: #dcfce7; color: #166534; }
 
-  .kpi-sep {
-    width: 1px;
-    height: 30px;
-    background: var(--border-color);
-  }
-
-  .kpi-side-highlights {
+  /* ── Destaques Críticos (Linha Abaixo - Largura Total da Página) ── */
+  .inad-destaques-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 12px 24px;
+    margin-bottom: 16px;
+    width: 100%;
+    box-sizing: border-box;
     display: flex;
     align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
+    justify-content: space-between;
   }
 
-  .kpi-side-item {
+  .destaque-col {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 3px;
+    min-width: 0;
   }
-  .kpi-side-lbl {
-    font-size: 11px;
-    color: var(--text-muted);
+
+  .destaque-lbl {
+    font-size: 11.5px;
     font-weight: 600;
+    color: var(--text-muted);
   }
-  .kpi-side-val {
-    font-size: 12.5px;
+
+  .destaque-val {
+    font-size: 14.5px;
     font-weight: 700;
     color: var(--text-main);
     white-space: nowrap;
-    max-width: 140px;
     overflow: hidden;
     text-overflow: ellipsis;
+    cursor: pointer;
+    transition: color .12s;
   }
-  .kpi-side-sub {
-    font-size: 11px;
+  .destaque-val:hover {
+    color: var(--brand-orange);
+    text-decoration: underline;
+  }
+
+  .destaque-sub {
+    font-size: 12px;
     color: var(--text-muted);
   }
-  .kpi-side-sub.orange {
+  .destaque-sub.orange {
     color: var(--brand-orange);
     font-weight: 700;
+  }
+
+  .destaque-divider {
+    width: 1px;
+    height: 38px;
+    background: var(--border-color);
+    margin: 0 28px;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 600px) {
+    .inad-destaques-card {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 18px;
+    }
+    .destaque-divider {
+      width: 100%;
+      height: 1px;
+      margin: 4px 0;
+    }
   }
 
   /* ── Abas de Navegação ── */
@@ -1036,7 +1073,7 @@
 </div>
 {% endif %}
 
-<!-- ════════════════ BARRA DE KPIS SUPERIOR ════════════════ -->
+<!-- ════════════════ BARRA DE KPIS SUPERIOR (CARD DE CIMA - PÁGINA INTEIRA) ════════════════ -->
 <div class="inad-kpi-card">
   <div class="kpi-metrics-group">
     <!-- 1. Total Original -->
@@ -1071,21 +1108,20 @@
       </div>
     </div>
   </div>
+</div>
 
-  <div class="kpi-sep"></div>
-
-  <!-- Destaques à direita -->
-  <div class="kpi-side-highlights">
-    <div class="kpi-side-item">
-      <span class="kpi-side-lbl">Mais ocorrências</span>
-      <span class="kpi-side-val" title="{{ critico_ocorr_nome }}">{{ critico_ocorr_nome }}</span>
-      <span class="kpi-side-sub">{{ critico_ocorr_qtd }} faturas</span>
-    </div>
-    <div class="kpi-side-item">
-      <span class="kpi-side-lbl">Maior saldo devedor</span>
-      <span class="kpi-side-val" title="{{ critico_valor_nome }}">{{ critico_valor_nome }}</span>
-      <span class="kpi-side-sub orange">{{ critico_valor_total }}</span>
-    </div>
+<!-- ════════════════ DESTAQUES CRÍTICOS (LINHA ABAIXO - LARGURA TOTAL) ════════════════ -->
+<div class="inad-destaques-card">
+  <div class="destaque-col">
+    <span class="destaque-lbl">Mais ocorrências</span>
+    <span class="destaque-val" onclick="abrirDebitosModal({{ critico_ocorr_nome | tojson }})" title="Ver faturas de {{ critico_ocorr_nome }}">{{ critico_ocorr_nome }}</span>
+    <span class="destaque-sub">{{ critico_ocorr_qtd }} faturas</span>
+  </div>
+  <div class="destaque-divider"></div>
+  <div class="destaque-col">
+    <span class="destaque-lbl">Maior saldo devedor</span>
+    <span class="destaque-val" onclick="abrirDebitosModal({{ critico_valor_nome | tojson }})" title="Ver faturas de {{ critico_valor_nome }}">{{ critico_valor_nome }}</span>
+    <span class="destaque-sub orange">{{ critico_valor_total }}</span>
   </div>
 </div>
 
